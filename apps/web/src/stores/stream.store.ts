@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
-export type StreamStatus = 'connected' | 'reconnecting' | 'disabled';
+export type StreamStatus = 'connected' | 'reconnecting' | 'polling' | 'disabled';
 
 /** SSE connection status for the reconciliation health strip. */
 interface StreamState {

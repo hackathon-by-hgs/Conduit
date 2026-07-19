@@ -5,6 +5,8 @@ import { devtools } from 'zustand/middleware';
 interface SelectionState {
   selectedSendIds: string[];
   toggle: (id: string) => void;
+  /** Replace the whole selection — used for select-all / clear-all over a row set. */
+  set: (ids: string[]) => void;
   clear: () => void;
   isSelected: (id: string) => boolean;
 }
@@ -18,6 +20,7 @@ export const useSelectionStore = create<SelectionState>()(
           ? s.selectedSendIds.filter((x) => x !== id)
           : [...s.selectedSendIds, id],
       })),
+    set: (ids) => set({ selectedSendIds: ids }),
     clear: () => set({ selectedSendIds: [] }),
     isSelected: (id) => get().selectedSendIds.includes(id),
   })),

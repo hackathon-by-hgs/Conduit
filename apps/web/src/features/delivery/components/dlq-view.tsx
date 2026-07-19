@@ -20,7 +20,10 @@ export function DlqView() {
         data.items.length ? (
           <DlqTable sends={data.items} />
         ) : (
-          <EmptyState>DLQ is empty 🎉</EmptyState>
+          <EmptyState>
+            No dead-lettered sends. Deliveries that exhaust their retries land here,
+            where you can replay them.
+          </EmptyState>
         )
       ) : null}
     </section>
