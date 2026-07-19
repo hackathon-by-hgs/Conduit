@@ -229,18 +229,16 @@ The claim isn't "trust us" — it's measurable. The test: run **N events with in
 
 ## Screenshots
 
-> Placeholder tiles below — swap for real captures in `docs/screenshots/` before submission.
-
 <div align="center">
 
 <table>
   <tr>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Events+stream" width="100%" alt="Events stream" /><br/><sub><b>Events stream</b> — live, filterable, cursor-paginated</sub></td>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Reconciliation" width="100%" alt="Reconciliation dashboard" /><br/><sub><b>Reconciliation</b> — gaps grouped by type, deep-linked</sub></td>
+    <td align="center" width="50%"><img src="docs/screenshots/dlq.png" alt="Dead-letter queue" /><br/><sub><b>DLQ + replay</b> — per-row & bulk, optimistic</sub></td>
+    <td align="center" width="50%"><img src="docs/screenshots/reconciliation.png" alt="Reconciliation dashboard" /><br/><sub><b>Reconciliation</b> — gaps grouped by type, deep-linked</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=DLQ+%2B+replay" width="100%" alt="DLQ and replay" /><br/><sub><b>DLQ + replay</b> — per-row & bulk, optimistic</sub></td>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Delivery+timeline" width="100%" alt="Delivery timeline" /><br/><sub><b>Delivery timeline</b> — every attempt + backoff gap</sub></td>
+    <td align="center"><img src="docs/screenshots/events.png" alt="Events stream" /><br/><sub><b>Events stream</b> — live, filterable, cursor-paginated</sub></td>
+    <td align="center"><img src="docs/screenshots/timeline.png" alt="Delivery timeline" /><br/><sub><b>Delivery timeline</b> — every attempt + backoff gap</sub></td>
   </tr>
 </table>
 
