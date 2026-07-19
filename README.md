@@ -452,11 +452,28 @@ sequenceDiagram
 
 ### Core Workflow
 
-1. **Receive.** A provider POSTs to `/webhooks/:source`. The handler verifies the HMAC signature over the exact raw bytes, extracts an idempotency key (`idempotencyKey` or `id` from the payload), and persists the event. A duplicate key returns the original event and is **not** re-processed.
-2. **Enqueue.** For genuinely new events, a `deliver` job is added to the BullMQ delivery queue — the inbound → outbound hand-off.
-3. **Deliver.** The delivery worker creates `Send` rows (linked by `causedBy`), delivers via the provider, records each `Attempt`, retries with exponential backoff + jitter, and dead-letters after the max attempts.
-4. **Reconcile.** A background reconciler checks the invariant and persists any newly-detected gaps, idempotently (an open gap for the same `(type, event, send)` is not re-emitted).
-5. **Observe.** The dashboard reads events, sends, gaps, and stats over REST, and subscribes to `/stream` (SSE) to refetch on change — falling back to polling if the stream drops.
+<table>
+  <tr>
+    <td width="52" align="center" valign="top"><img src="https://api.iconify.design/lucide/webhook.svg?color=%236C4CF1" width="22" /><br/><sub><b>1</b></sub></td>
+    <td><b>Receive.</b> A provider POSTs to <code>/webhooks/:source</code>. The handler verifies the HMAC signature over the exact raw bytes, extracts an idempotency key (<code>idempotencyKey</code> or <code>id</code> from the payload), and persists the event. A duplicate key returns the original event and is <b>not</b> re-processed.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/list-plus.svg?color=%236C4CF1" width="22" /><br/><sub><b>2</b></sub></td>
+    <td><b>Enqueue.</b> For genuinely new events, a <code>deliver</code> job is added to the BullMQ delivery queue — the inbound-to-outbound hand-off.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/send.svg?color=%236C4CF1" width="22" /><br/><sub><b>3</b></sub></td>
+    <td><b>Deliver.</b> The delivery worker creates <code>Send</code> rows (linked by <code>causedBy</code>), delivers via the provider, records each <code>Attempt</code>, retries with exponential backoff + jitter, and dead-letters after the max attempts.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/scale.svg?color=%236C4CF1" width="22" /><br/><sub><b>4</b></sub></td>
+    <td><b>Reconcile.</b> A background reconciler checks the invariant and persists any newly-detected gaps, idempotently (an open gap for the same <code>(type, event, send)</code> is not re-emitted).</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/monitor-dot.svg?color=%236C4CF1" width="22" /><br/><sub><b>5</b></sub></td>
+    <td><b>Observe.</b> The dashboard reads events, sends, gaps, and stats over REST, and subscribes to <code>/stream</code> (SSE) to refetch on change — falling back to polling if the stream drops.</td>
+  </tr>
+</table>
 
 ---
 
@@ -866,12 +883,26 @@ Status vocabularies (from `@conduit/contracts`): `EventStatus` = `received | pro
 
 ## Security Considerations
 
-- HMAC-SHA256 verification over the exact raw request bytes, compared in constant time (`timingSafeEqual`).
-- Strict request validation (`ValidationPipe` with `whitelist` + `forbidNonWhitelisted`).
-- CORS restricted to `WEB_ORIGIN`.
-- Environment validated at boot; the process refuses to start with an invalid config.
-- Secrets never reach the browser — only `NEXT_PUBLIC_*` values are exposed to the client.
-- Idempotency prevents duplicate side effects from provider retries.
+<table>
+  <tr>
+    <td width="34" align="center" valign="top"><img src="https://api.iconify.design/lucide/shield-check.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Signed webhooks.</b> HMAC-SHA256 over the exact raw request bytes, compared in constant time (<code>timingSafeEqual</code>).</td>
+    <td width="34" align="center" valign="top"><img src="https://api.iconify.design/lucide/filter.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Strict validation.</b> <code>ValidationPipe</code> with <code>whitelist</code> + <code>forbidNonWhitelisted</code> strips unknown fields.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/globe-lock.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Locked CORS.</b> Requests are restricted to <code>WEB_ORIGIN</code>.</td>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/settings-2.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Validated config.</b> The environment is Zod-checked at boot; the process refuses to start with an invalid config.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/eye-off.svg?color=%232ea44f" width="18" /></td>
+    <td><b>No leaked secrets.</b> Only <code>NEXT_PUBLIC_*</code> values reach the browser.</td>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/fingerprint.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Replay-safe.</b> Idempotency prevents duplicate side effects from provider retries.</td>
+  </tr>
+</table>
 
 > **Note:** in development, signature verification is skipped when a source has no configured secret. Ensure every production source has `WEBHOOK_SECRET_<SOURCE>` set.
 
@@ -971,52 +1002,34 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 <br/>
 
+<p>
+  <a href="https://github.com/Maxima24"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FMaxima24.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="Maxima24" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/professor-12"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2Fprofessor-12.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="professor-12" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/ZEED2468"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FZEED2468.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="ZEED2468" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/Ferousco-dev"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FFerousco-dev.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="Ferousco-dev" /></a>
+</p>
+
 <table>
   <tr>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/Maxima24"><img src="https://github.com/Maxima24.png?size=200" width="96" alt="Maxima24" /></a>
-      <br/><br/>
-      <a href="https://github.com/Maxima24"><b>@Maxima24</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Backend_1-E0234E" alt="Backend 1" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/database.svg?color=%23888" width="12" /> Ingest · persistence<br/>events read API</sub>
-      <br/><br/>
-      <a href="https://github.com/Maxima24"><img src="https://img.shields.io/github/followers/Maxima24?label=Follow&style=social" alt="Follow @Maxima24" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/professor-12"><img src="https://github.com/professor-12.png?size=200" width="96" alt="professor-12" /></a>
-      <br/><br/>
-      <a href="https://github.com/professor-12"><b>@professor-12</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Backend_2-E0234E" alt="Backend 2" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/send.svg?color=%23888" width="12" /> Delivery · DLQ<br/>reconciler · SSE</sub>
-      <br/><br/>
-      <a href="https://github.com/professor-12"><img src="https://img.shields.io/github/followers/professor-12?label=Follow&style=social" alt="Follow @professor-12" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/ZEED2468"><img src="https://github.com/ZEED2468.png?size=200" width="96" alt="ZEED2468" /></a>
-      <br/><br/>
-      <a href="https://github.com/ZEED2468"><b>@ZEED2468</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Frontend_1-3178C6" alt="Frontend 1" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/layout-dashboard.svg?color=%23888" width="12" /> App shell · event<br/>stream · detail</sub>
-      <br/><br/>
-      <a href="https://github.com/ZEED2468"><img src="https://img.shields.io/github/followers/ZEED2468?label=Follow&style=social" alt="Follow @ZEED2468" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/Ferousco-dev"><img src="https://github.com/Ferousco-dev.png?size=200" width="96" alt="Ferousco-dev" /></a>
-      <br/><br/>
-      <a href="https://github.com/Ferousco-dev"><b>@Ferousco-dev</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Frontend_2-3178C6" alt="Frontend 2" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/scan-search.svg?color=%23888" width="12" /> DLQ · reconciliation<br/>dashboard · stats</sub>
-      <br/><br/>
-      <a href="https://github.com/Ferousco-dev"><img src="https://img.shields.io/github/followers/Ferousco-dev?label=Follow&style=social" alt="Follow @Ferousco-dev" /></a>
-    </td>
+    <td align="center"><a href="https://github.com/Maxima24">@Maxima24</a></td>
+    <td align="center"><a href="https://github.com/professor-12">@professor-12</a></td>
+    <td align="center"><a href="https://github.com/ZEED2468">@ZEED2468</a></td>
+    <td align="center"><a href="https://github.com/Ferousco-dev">@Ferousco-dev</a></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Backend_1-E0234E" alt="Backend 1" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Backend_2-E0234E" alt="Backend 2" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Frontend_1-3178C6" alt="Frontend 1" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Frontend_2-3178C6" alt="Frontend 2" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Ingest · persistence · events API</sub></td>
+    <td align="center"><sub>Delivery · DLQ · reconciler · SSE</sub></td>
+    <td align="center"><sub>App shell · event stream · detail</sub></td>
+    <td align="center"><sub>DLQ · reconciliation · stats</sub></td>
   </tr>
 </table>
 
