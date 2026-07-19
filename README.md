@@ -1002,52 +1002,34 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 <br/>
 
+<p>
+  <a href="https://github.com/Maxima24"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FMaxima24.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="Maxima24" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/professor-12"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2Fprofessor-12.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="professor-12" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/ZEED2468"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FZEED2468.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="ZEED2468" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/Ferousco-dev"><img src="https://wsrv.nl/?url=https%3A%2F%2Fgithub.com%2FFerousco-dev.png&w=220&h=220&fit=cover&mask=circle" width="104" alt="Ferousco-dev" /></a>
+</p>
+
 <table>
   <tr>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/Maxima24"><img src="https://github.com/Maxima24.png?size=200" width="96" alt="Maxima24" /></a>
-      <br/><br/>
-      <a href="https://github.com/Maxima24"><b>@Maxima24</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Backend_1-E0234E" alt="Backend 1" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/database.svg?color=%23888" width="12" /> Ingest · persistence<br/>events read API</sub>
-      <br/><br/>
-      <a href="https://github.com/Maxima24"><img src="https://img.shields.io/github/followers/Maxima24?label=Follow&style=social" alt="Follow @Maxima24" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/professor-12"><img src="https://github.com/professor-12.png?size=200" width="96" alt="professor-12" /></a>
-      <br/><br/>
-      <a href="https://github.com/professor-12"><b>@professor-12</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Backend_2-E0234E" alt="Backend 2" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/send.svg?color=%23888" width="12" /> Delivery · DLQ<br/>reconciler · SSE</sub>
-      <br/><br/>
-      <a href="https://github.com/professor-12"><img src="https://img.shields.io/github/followers/professor-12?label=Follow&style=social" alt="Follow @professor-12" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/ZEED2468"><img src="https://github.com/ZEED2468.png?size=200" width="96" alt="ZEED2468" /></a>
-      <br/><br/>
-      <a href="https://github.com/ZEED2468"><b>@ZEED2468</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Frontend_1-3178C6" alt="Frontend 1" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/layout-dashboard.svg?color=%23888" width="12" /> App shell · event<br/>stream · detail</sub>
-      <br/><br/>
-      <a href="https://github.com/ZEED2468"><img src="https://img.shields.io/github/followers/ZEED2468?label=Follow&style=social" alt="Follow @ZEED2468" /></a>
-    </td>
-    <td align="center" width="25%" valign="top">
-      <a href="https://github.com/Ferousco-dev"><img src="https://github.com/Ferousco-dev.png?size=200" width="96" alt="Ferousco-dev" /></a>
-      <br/><br/>
-      <a href="https://github.com/Ferousco-dev"><b>@Ferousco-dev</b></a>
-      <br/>
-      <img src="https://img.shields.io/badge/Frontend_2-3178C6" alt="Frontend 2" />
-      <br/><br/>
-      <sub><img src="https://api.iconify.design/lucide/scan-search.svg?color=%23888" width="12" /> DLQ · reconciliation<br/>dashboard · stats</sub>
-      <br/><br/>
-      <a href="https://github.com/Ferousco-dev"><img src="https://img.shields.io/github/followers/Ferousco-dev?label=Follow&style=social" alt="Follow @Ferousco-dev" /></a>
-    </td>
+    <td align="center"><a href="https://github.com/Maxima24">@Maxima24</a></td>
+    <td align="center"><a href="https://github.com/professor-12">@professor-12</a></td>
+    <td align="center"><a href="https://github.com/ZEED2468">@ZEED2468</a></td>
+    <td align="center"><a href="https://github.com/Ferousco-dev">@Ferousco-dev</a></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Backend_1-E0234E" alt="Backend 1" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Backend_2-E0234E" alt="Backend 2" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Frontend_1-3178C6" alt="Frontend 1" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Frontend_2-3178C6" alt="Frontend 2" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Ingest · persistence · events API</sub></td>
+    <td align="center"><sub>Delivery · DLQ · reconciler · SSE</sub></td>
+    <td align="center"><sub>App shell · event stream · detail</sub></td>
+    <td align="center"><sub>DLQ · reconciliation · stats</sub></td>
   </tr>
 </table>
 
