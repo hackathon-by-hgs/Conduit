@@ -8,8 +8,12 @@ export function makeQueryClient(): QueryClient {
         staleTime: 10_000,
         refetchOnWindowFocus: false,
         retry: (failureCount, error) => {
-          // Client errors (4xx) won't fix themselves — fail fast. Retry others twice.
-          if (error instanceof ApiClientError && error.error.statusCode < 500) return false;
+          // Client errors (4xx) won't fix themselves — fail fast. Transient failures
+          // (network/timeout = statusCode 0, or 5xx) are retried a couple of times.
+          if (error instanceof ApiClientError) {
+            const { statusCode } = error.error;
+            if (statusCode >= 400 && statusCode < 500) return false;
+          }
           return failureCount < 2;
         },
       },

@@ -20,7 +20,7 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a?logo=nodedotjs&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-24_passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-29_passing-2ea44f)
 ![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
 ![License](https://img.shields.io/badge/license-TBD-lightgrey)
 
@@ -965,14 +965,22 @@ No CI/CD workflows are present in the repository yet (`.github/workflows` does n
 
 ## Implementation Status
 
-Conduit is a working scaffold with the full contract, schema, and every module and route wired end to end. Read paths (events, sends, reconcile, stats), webhook ingest (idempotent persist + enqueue), and the entire frontend logic layer are implemented and tested. A few correctness-critical backend pieces are intentionally left as clearly-marked `TODO(BEx)` stubs for their owners and are **not yet functional**:
+Conduit has the full contract, schema, and every module and route wired end to end. The read paths (events, sends, reconcile, stats), idempotent webhook ingest, the delivery pipeline, and the entire frontend logic layer are implemented and tested.
 
-- **Delivery worker** (`delivery.processor.ts`) — real send, `Send`/`Attempt` creation, backoff + jitter, and dead-lettering (currently a logging stub).
-- **`POST /sends/:id/replay`** — returns `501 Not Implemented` pending the idempotent re-enqueue.
-- **Resend provider** — returns a stubbed `202` instead of performing a live send.
+**Implemented**
+
+- **Webhook ingest** — HMAC signature verification (`common/crypto/signature.ts`), idempotent persist on a unique key, and enqueue.
+- **Delivery pipeline** — `delivery.service` + `delivery.repository` create sends, record attempts, retry, and dead-letter, driven by a **transactional outbox** (`outbox.dispatcher`) for reliable hand-off.
+- **`POST /sends/:id/replay`** — idempotent re-enqueue of a dead-lettered send.
+- **Migrations** — keyset-pagination indexes, per-source idempotency, send dedupe key, and a reconcile-gap unique constraint.
+- **Frontend logic layer** — optimistic replay + bulk replay, URL-synced filters, cursor pagination, SSE-with-polling-fallback, CSV export, and the gap deep-link contract (unit-tested).
+
+**Still stubbed / pending** (clearly-marked `TODO(BEx)`)
+
 - **Reconciler scheduling** — `runReconciler()` is implemented but not yet wired to a periodic schedule; `orphan_send` detection is pending.
+- **Real Resend send** — the provider returns a stubbed success instead of a live send.
 - **`duplicatesRejected` stat** — currently returns `0` (duplicates aren't yet counted in a metric).
-- **Hardened per-source HMAC schemes** — beyond the generic HMAC-SHA256 verification, including **Monnify's SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
+- **Monnify-specific signature** — the generic HMAC verification is in place; Monnify's **SHA-512 `monnify-signature`** scheme and the `eventData.transactionReference` → idempotency-key mapping are the remaining per-source adaptation.
 
 This section is deliberately explicit so reviewers know exactly what is live versus stubbed.
 
@@ -987,7 +995,7 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## Known Limitations
 
-- Several backend features are stubbed (see [Implementation Status](#implementation-status)).
+- A few pieces are still stubbed — the reconciler schedule, the live Resend send, the `duplicatesRejected` metric, and the Monnify-specific signature scheme (see [Implementation Status](#implementation-status)).
 - On free-tier hosting the worker runs in-process with the API and services cold-start after inactivity.
 - No authenticated user layer — Conduit is a machine-to-machine service.
 - Signature verification is skipped for sources without a configured secret in development.
