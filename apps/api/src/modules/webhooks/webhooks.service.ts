@@ -4,14 +4,12 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import type { Queue } from 'bullmq';
 import type { WebhookIngestResponse } from '@conduit/contracts';
 import { verifyPayload } from '../../common/crypto/signature';
 import { AppConfigService } from '../../config/config.service';
-import { QUEUE_NAMES } from '../../queue/queue.constants';
-import { DELIVERY_JOB_NAME, type DeliveryJobData } from '../../queue/job.types';
 import { WebhooksRepository } from './webhooks.repository';
+
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 
 @Injectable()
 export class WebhooksService {
@@ -20,7 +18,6 @@ export class WebhooksService {
   constructor(
     private readonly repo: WebhooksRepository,
     private readonly config: AppConfigService,
-    @InjectQueue(QUEUE_NAMES.delivery) private readonly deliveryQueue: Queue<DeliveryJobData>,
   ) {}
 
   async ingest(
@@ -31,6 +28,9 @@ export class WebhooksService {
     this.verifySignature(source, rawBody, signature);
 
     const parsed = this.parse(rawBody);
+    // Atomic: persists the event AND its delivery outbox row in one transaction; the
+    // outbox dispatcher hands it to BullMQ. No direct enqueue on the request path
+    // (fast-ack, and ingest still succeeds if Redis is down).
     const { event, duplicate } = await this.repo.createIfNew({
       source,
       type: parsed.type,
@@ -38,15 +38,6 @@ export class WebhooksService {
       payload: parsed.payload,
       signature: signature ?? null,
     });
-
-    // Hand off to BE2's delivery worker only for genuinely new events.
-    if (!duplicate) {
-      await this.deliveryQueue.add(
-        DELIVERY_JOB_NAME,
-        { eventId: event.id, source, receivedAt: event.receivedAt.toISOString() },
-        { removeOnComplete: true, removeOnFail: false },
-      );
-    }
 
     return { id: event.id, duplicate };
   }
@@ -111,6 +102,12 @@ export class WebhooksService {
       throw new BadRequestException({
         code: 'MISSING_IDEMPOTENCY_KEY',
         message: 'Payload must include an idempotencyKey or id',
+      });
+    }
+    if (idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+      throw new BadRequestException({
+        code: 'IDEMPOTENCY_KEY_TOO_LONG',
+        message: `idempotencyKey exceeds ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
       });
     }
     return { type, idempotencyKey, payload: json };

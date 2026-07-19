@@ -17,6 +17,9 @@ export const envSchema = z.object({
   // Ingest rate limiting (per client IP).
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(10_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+  // Outbox dispatcher (drains persisted delivery intents to BullMQ).
+  OUTBOX_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(100),
 });
 
 export type Env = z.infer<typeof envSchema>;

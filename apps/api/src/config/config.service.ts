@@ -42,6 +42,14 @@ export class AppConfigService {
     return this.config.get('THROTTLE_LIMIT', { infer: true });
   }
 
+  get outboxDispatchIntervalMs() {
+    return this.config.get('OUTBOX_DISPATCH_INTERVAL_MS', { infer: true });
+  }
+
+  get outboxBatchSize() {
+    return this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
+  }
+
   /** Per-source HMAC secret, e.g. WEBHOOK_SECRET_STRIPE for source "stripe". */
   webhookSecret(source: string): string | undefined {
     return process.env[`WEBHOOK_SECRET_${source.toUpperCase()}`];
