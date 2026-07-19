@@ -74,16 +74,21 @@ export class ReconciliationRepository {
     });
   }
 
+  /**
+   * Insert gaps, deduped at the DB by the partial unique index on OPEN gaps
+   * (`reconcile_gaps_open_unique`, NULLS NOT DISTINCT). Safe under concurrent reconciler
+   * runs (e.g. multiple API instances) — a conflicting open gap is silently skipped.
+   */
   async createGaps(gaps: NewGap[]): Promise<number> {
-    if (gaps.length === 0) return 0;
-    const res = await this.prisma.reconcileGap.createMany({
-      data: gaps.map((g) => ({
-        type: g.type,
-        detail: g.detail,
-        eventId: g.eventId,
-        sendId: g.sendId,
-      })),
-    });
-    return res.count;
+    let created = 0;
+    for (const g of gaps) {
+      const inserted = await this.prisma.$executeRaw`
+        INSERT INTO "reconcile_gaps" ("id", "type", "eventId", "sendId", "detail", "detectedAt")
+        VALUES (gen_random_uuid()::text, ${g.type}, ${g.eventId}, ${g.sendId}, ${g.detail}, now())
+        ON CONFLICT ("type", "eventId", "sendId") WHERE "resolvedAt" IS NULL DO NOTHING
+      `;
+      created += Number(inserted);
+    }
+    return created;
   }
 }

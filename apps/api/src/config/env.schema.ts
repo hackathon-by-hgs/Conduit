@@ -20,6 +20,14 @@ export const envSchema = z.object({
   // Outbox dispatcher (drains persisted delivery intents to BullMQ).
   OUTBOX_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+  // Delivery worker: retry/backoff/DLQ + near-duplicate collapse window.
+  DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  DELIVERY_BACKOFF_MS: z.coerce.number().int().positive().default(1000),
+  DELIVERY_DEDUP_WINDOW_MS: z.coerce.number().int().nonnegative().default(1000),
+  // Stub provider failure rate [0..1] for exercising retry/DLQ locally.
+  DELIVERY_FAIL_RATE: z.coerce.number().min(0).max(1).default(0),
+  // Reconciler cadence.
+  RECONCILE_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

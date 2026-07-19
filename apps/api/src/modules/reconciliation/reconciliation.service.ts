@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from '@nestjs/common';
 import {
   GAP_TYPE,
   type GapType,
   type ReconcileQuery,
   type ReconcileReportDto,
 } from '@conduit/contracts';
+import { AppConfigService } from '../../config/config.service';
 import { type NewGap, ReconciliationRepository } from './reconciliation.repository';
 import { GapsMapper } from './reconciliation.mapper';
 
@@ -16,8 +22,41 @@ function gapKey(type: GapType, eventId: string | null, sendId: string | null): s
 }
 
 @Injectable()
-export class ReconciliationService {
-  constructor(private readonly repo: ReconciliationRepository) {}
+export class ReconciliationService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(ReconciliationService.name);
+  private timer?: NodeJS.Timeout;
+  private running = false;
+
+  constructor(
+    private readonly repo: ReconciliationRepository,
+    private readonly config: AppConfigService,
+  ) {}
+
+  onModuleInit(): void {
+    this.timer = setInterval(() => void this.tick(), this.config.reconcileIntervalMs);
+    this.timer.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  /** Scheduled reconciler pass; non-reentrant. */
+  private async tick(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      const { created } = await this.runReconciler();
+      if (created > 0) this.logger.log(`Reconciler emitted ${created} new gap(s).`);
+    } catch (error) {
+      this.logger.error(
+        'Reconciler pass failed',
+        error instanceof Error ? error.stack : undefined,
+      );
+    } finally {
+      this.running = false;
+    }
+  }
 
   async getReport(query: ReconcileQuery): Promise<ReconcileReportDto> {
     const rows = await this.repo.findGaps(query);

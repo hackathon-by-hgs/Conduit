@@ -63,6 +63,7 @@ model Send {
   status         String         @default("pending")
   attempts       Int            @default(0)
   lastError      String?
+  dedupeKey      String? // hash(to+channel+payload) — collapses near-duplicate sends in a window
   createdAt      DateTime       @default(now())
   deliveredAt    DateTime?
   attemptHistory Attempt[]
@@ -70,6 +71,7 @@ model Send {
 
   @@index([status, createdAt, id]) // covers filter + keyset sort (createdAt, id)
   @@index([causedBy])
+  @@index([dedupeKey, createdAt]) // delivery-dedup window lookup
   @@map("sends")
 }
 
@@ -100,5 +102,8 @@ model ReconcileGap {
   resolvedAt DateTime?
 
   @@index([type, detectedAt])
+  // NOTE: a partial UNIQUE index `reconcile_gaps_open_unique` on (type, eventId, sendId)
+  // WHERE resolvedAt IS NULL (NULLS NOT DISTINCT) is managed by raw migration — Prisma
+  // can't express partial/NULLS-NOT-DISTINCT indexes, so keep it out of migrate dev drift.
   @@map("reconcile_gaps")
 }
