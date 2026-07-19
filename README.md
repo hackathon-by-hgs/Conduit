@@ -82,12 +82,26 @@
 
 ## Problem Statement
 
-Every product that takes payments talks to a gateway over webhooks. A gateway like **Monnify** fires a webhook for every transaction event — a successful payment, a settlement, a disbursement, a refund — and your backend reacts to it: credit a wallet, send a receipt, notify a partner. This plumbing is where money quietly goes wrong:
+Every product that takes payments talks to a gateway over webhooks. A gateway like **Monnify** fires a webhook for every transaction event — a successful payment, a settlement, a disbursement, a refund — and your backend reacts to it: credit a wallet, send a receipt, notify a partner. **This plumbing is where money quietly goes wrong:**
 
-- The same transaction webhook arrives twice — gateways retry, and delivery is **at-least-once by design** — so the customer is credited twice or emailed two receipts.
-- A `SUCCESSFUL_TRANSACTION` webhook is received but the process crashes before finishing; the wallet is never credited and nobody notices.
-- The receipt provider is briefly down and the notification is simply lost.
-- At month-end, finance asks _"did every successful Monnify payment actually send its receipt, and does our ledger match the gateway's?"_ — and nobody can answer.
+<table>
+  <tr>
+    <td width="34" align="center" valign="top"><img src="https://api.iconify.design/lucide/copy.svg?color=%23d64545" width="20" /></td>
+    <td><b>Duplicate delivery.</b> The same transaction webhook arrives twice — delivery is <b>at-least-once by design</b> — so the customer is credited twice or emailed two receipts.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/server-crash.svg?color=%23d64545" width="20" /></td>
+    <td><b>Lost on crash.</b> A <code>SUCCESSFUL_TRANSACTION</code> is received but the process crashes before finishing; the wallet is never credited and nobody notices.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/cloud-off.svg?color=%23d64545" width="20" /></td>
+    <td><b>Silently dropped.</b> The receipt provider is briefly down and the notification is simply lost.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/file-question.svg?color=%23d64545" width="20" /></td>
+    <td><b>Unprovable at month-end.</b> Finance asks <i>"did every successful Monnify payment send its receipt, and does our ledger match the gateway's?"</i> — and nobody can answer.</td>
+  </tr>
+</table>
 
 The same failure modes apply to any webhook source (GitHub, a partner API), but with payments they cost real money and trust. Teams solve this ad hoc, badly, once per project.
 
@@ -95,12 +109,22 @@ The same failure modes apply to any webhook source (GitHub, a partner API), but 
 
 **Every fintech, SaaS, and marketplace speaks webhooks — and every one of them re-solves the same problem.** Payment processors, git hosts, and partner APIs fire billions of webhooks a day, each with at-least-once delivery, which means duplicates and retries are not edge cases — they are the contract. The failures are silent until they are expensive: a double charge, a missing receipt, a compliance question nobody can answer.
 
-Today, teams have two bad options:
+Today, teams have two bad options — Conduit is the third:
 
-- **Roll it yourself** — rebuild idempotency, retries, backoff, a dead-letter queue, and a reconciliation job in every service, and hope you got the edge cases right.
-- **Trust a black box** — adopt a delivery tool that hides the internals, and simply believe it when it says everything shipped.
+<table>
+  <tr>
+    <th width="33%"><img src="https://api.iconify.design/lucide/x.svg?color=%23d64545" width="14" align="center" /> Roll it yourself</th>
+    <th width="33%"><img src="https://api.iconify.design/lucide/x.svg?color=%23d64545" width="14" align="center" /> Trust a black box</th>
+    <th width="33%"><img src="https://api.iconify.design/lucide/check.svg?color=%232ea44f" width="14" align="center" /> Conduit</th>
+  </tr>
+  <tr>
+    <td valign="top">Rebuild idempotency, retries, backoff, a dead-letter queue, and a reconciliation job in <b>every</b> service — and hope you got the edge cases right.</td>
+    <td valign="top">Adopt a delivery tool that hides the internals, and simply <b>believe it</b> when it says everything shipped.</td>
+    <td valign="top"><b>One-line integration <i>and</i> a verifiable guarantee.</b> Idempotent by default, with the reliability and reconciliation state fully visible and queryable.</td>
+  </tr>
+</table>
 
-Conduit takes a third path, and that path is the wedge: **one-line integration _and_ a verifiable guarantee.** Sending is idempotent by default (the magic), but the reliability and reconciliation state is fully visible, queryable, and controllable (the transparency). For anything touching money, audit, or correctness, developers distrust magic — so letting a skeptical engineer _inspect_ the event log and _prove_ the invariant holds is the differentiator, not a footnote.
+That third path is the wedge. Sending is idempotent by default (the magic), but the reliability and reconciliation state is fully visible, queryable, and controllable (the transparency). For anything touching money, audit, or correctness, developers distrust magic — so letting a skeptical engineer _inspect_ the event log and _prove_ the invariant holds is the differentiator, not a footnote.
 
 > Conduit unifies three ideas that are usually three separate tools: webhook idempotency/reliability, multi-channel delivery, and reconciliation — under one thesis: _reliable event delivery, end to end, with proof._
 
@@ -108,13 +132,27 @@ Conduit takes a third path, and that path is the wedge: **one-line integration _
 
 Conduit is the reusable answer. Drop it in and inbound-to-outbound event flow becomes **reliable and auditable** without rebuilding idempotency, retries, and reconciliation every time.
 
-The system is three parts on one pipe:
+**The system is three parts on one pipe:**
 
-| Part                                 | Role                                                                                                                                                                                                                                     |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A · Webhook Handler** (inbound)    | Verifies HMAC signatures, assigns an idempotency key, and persists the raw event durably _before_ any processing, so a duplicate or a crash can never cause a double effect or a lost event.                                             |
-| **B · Delivery / Sender** (outbound) | A unified send API routed to providers, with retries (exponential backoff + jitter), a dead-letter queue (DLQ), and one-click / API replay.                                                                                              |
-| **C · Reconciler** (audit)           | Continuously checks the invariant — _every processed inbound event has its expected outbound send in a terminal state_ — and surfaces gaps (`no_send`, `orphan_send`, `duplicate_send`, `stuck`) immediately, with an exportable report. |
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h4><img src="https://api.iconify.design/lucide/download.svg?color=%236C4CF1" width="18" align="center" /> A · Webhook Handler</h4>
+      <sub>INBOUND</sub><br/><br/>
+      Verifies HMAC signatures, assigns an idempotency key, and persists the raw event durably <b>before</b> any processing — so a duplicate or a crash can never cause a double effect or a lost event.
+    </td>
+    <td width="33%" valign="top">
+      <h4><img src="https://api.iconify.design/lucide/send.svg?color=%236C4CF1" width="18" align="center" /> B · Delivery / Sender</h4>
+      <sub>OUTBOUND</sub><br/><br/>
+      A unified send API routed to providers, with retries (exponential backoff + jitter), a dead-letter queue (DLQ), and one-click / API replay.
+    </td>
+    <td width="33%" valign="top">
+      <h4><img src="https://api.iconify.design/lucide/scan-search.svg?color=%236C4CF1" width="18" align="center" /> C · Reconciler</h4>
+      <sub>AUDIT</sub><br/><br/>
+      Continuously checks the invariant — <i>every processed inbound event has its expected outbound send in a terminal state</i> — and surfaces gaps (<code>no_send</code>, <code>orphan_send</code>, <code>duplicate_send</code>, <code>stuck</code>) immediately, with an exportable report.
+    </td>
+  </tr>
+</table>
 
 The `causedBy` field is the thread that links every outbound send back to the inbound event that caused it, which is what lets the reconciler tie the two ends together.
 
@@ -927,36 +965,62 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## Contributors
 
-Built for the [APIConf 2026 Lagos Developer Challenge](https://apiconf.net/hackathon) by a team of four, each owning a vertical slice of the pipe:
+<div align="center">
+
+<img src="https://api.iconify.design/lucide/users.svg?color=%236C4CF1" width="22" align="center" /> **Four developers · two days · one pipe** — built for the [APIConf 2026 Lagos Developer Challenge](https://apiconf.net/hackathon).
+
+<br/>
 
 <table>
   <tr>
-    <td align="center" width="25%">
-      <a href="https://github.com/Maxima24"><img src="https://github.com/Maxima24.png" width="84" alt="Maxima24" /></a><br/>
-      <a href="https://github.com/Maxima24"><b>@Maxima24</b></a><br/>
-      <sub><b>Backend 1</b></sub><br/>
-      <sub>Ingest · persistence · events API</sub>
+    <td align="center" width="25%" valign="top">
+      <a href="https://github.com/Maxima24"><img src="https://github.com/Maxima24.png?size=200" width="96" alt="Maxima24" /></a>
+      <br/><br/>
+      <a href="https://github.com/Maxima24"><b>@Maxima24</b></a>
+      <br/>
+      <img src="https://img.shields.io/badge/Backend_1-E0234E" alt="Backend 1" />
+      <br/><br/>
+      <sub><img src="https://api.iconify.design/lucide/database.svg?color=%23888" width="12" /> Ingest · persistence<br/>events read API</sub>
+      <br/><br/>
+      <a href="https://github.com/Maxima24"><img src="https://img.shields.io/github/followers/Maxima24?label=Follow&style=social" alt="Follow @Maxima24" /></a>
     </td>
-    <td align="center" width="25%">
-      <a href="https://github.com/professor-12"><img src="https://github.com/professor-12.png" width="84" alt="professor-12" /></a><br/>
-      <a href="https://github.com/professor-12"><b>@professor-12</b></a><br/>
-      <sub><b>Backend 2</b></sub><br/>
-      <sub>Delivery · DLQ · reconciler · SSE</sub>
+    <td align="center" width="25%" valign="top">
+      <a href="https://github.com/professor-12"><img src="https://github.com/professor-12.png?size=200" width="96" alt="professor-12" /></a>
+      <br/><br/>
+      <a href="https://github.com/professor-12"><b>@professor-12</b></a>
+      <br/>
+      <img src="https://img.shields.io/badge/Backend_2-E0234E" alt="Backend 2" />
+      <br/><br/>
+      <sub><img src="https://api.iconify.design/lucide/send.svg?color=%23888" width="12" /> Delivery · DLQ<br/>reconciler · SSE</sub>
+      <br/><br/>
+      <a href="https://github.com/professor-12"><img src="https://img.shields.io/github/followers/professor-12?label=Follow&style=social" alt="Follow @professor-12" /></a>
     </td>
-    <td align="center" width="25%">
-      <a href="https://github.com/ZEED2468"><img src="https://github.com/ZEED2468.png" width="84" alt="ZEED2468" /></a><br/>
-      <a href="https://github.com/ZEED2468"><b>@ZEED2468</b></a><br/>
-      <sub><b>Frontend 1</b></sub><br/>
-      <sub>App shell · event stream · detail</sub>
+    <td align="center" width="25%" valign="top">
+      <a href="https://github.com/ZEED2468"><img src="https://github.com/ZEED2468.png?size=200" width="96" alt="ZEED2468" /></a>
+      <br/><br/>
+      <a href="https://github.com/ZEED2468"><b>@ZEED2468</b></a>
+      <br/>
+      <img src="https://img.shields.io/badge/Frontend_1-3178C6" alt="Frontend 1" />
+      <br/><br/>
+      <sub><img src="https://api.iconify.design/lucide/layout-dashboard.svg?color=%23888" width="12" /> App shell · event<br/>stream · detail</sub>
+      <br/><br/>
+      <a href="https://github.com/ZEED2468"><img src="https://img.shields.io/github/followers/ZEED2468?label=Follow&style=social" alt="Follow @ZEED2468" /></a>
     </td>
-    <td align="center" width="25%">
-      <a href="https://github.com/Ferousco-dev"><img src="https://github.com/Ferousco-dev.png" width="84" alt="Ferousco-dev" /></a><br/>
-      <a href="https://github.com/Ferousco-dev"><b>@Ferousco-dev</b></a><br/>
-      <sub><b>Frontend 2</b></sub><br/>
-      <sub>DLQ · reconciliation · stats</sub>
+    <td align="center" width="25%" valign="top">
+      <a href="https://github.com/Ferousco-dev"><img src="https://github.com/Ferousco-dev.png?size=200" width="96" alt="Ferousco-dev" /></a>
+      <br/><br/>
+      <a href="https://github.com/Ferousco-dev"><b>@Ferousco-dev</b></a>
+      <br/>
+      <img src="https://img.shields.io/badge/Frontend_2-3178C6" alt="Frontend 2" />
+      <br/><br/>
+      <sub><img src="https://api.iconify.design/lucide/scan-search.svg?color=%23888" width="12" /> DLQ · reconciliation<br/>dashboard · stats</sub>
+      <br/><br/>
+      <a href="https://github.com/Ferousco-dev"><img src="https://img.shields.io/github/followers/Ferousco-dev?label=Follow&style=social" alt="Follow @Ferousco-dev" /></a>
     </td>
   </tr>
 </table>
+
+</div>
 
 ## License
 
