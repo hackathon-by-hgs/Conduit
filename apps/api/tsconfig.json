@@ -4,6 +4,6 @@
     "baseUrl": ".",
     "outDir": "./dist"
   },
-  "include": ["src", "prisma/seed.ts"],
+  "include": ["src", "prisma/seed.ts", "scripts"],
   "exclude": ["node_modules", "dist"]
 }

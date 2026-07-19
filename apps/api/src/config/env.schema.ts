@@ -9,6 +9,14 @@ export const envSchema = z.object({
   WEB_ORIGIN: z.string().min(1).default('http://localhost:3000'),
   RESEND_API_KEY: z.string().default(''),
   EMAIL_FROM: z.string().default('conduit@example.dev'),
+  // Ingest HMAC verification. Default on; set to 'false'/'0' to bypass locally (mock/FE dev).
+  WEBHOOK_VERIFY: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false' && v !== '0'),
+  // Ingest rate limiting (per client IP).
+  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(10_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
 });
 
 export type Env = z.infer<typeof envSchema>;

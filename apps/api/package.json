@@ -15,7 +15,9 @@
     "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
-    "db:studio": "dotenv -e ../../.env -- prisma studio"
+    "db:studio": "dotenv -e ../../.env -- prisma studio",
+    "webhooks:generate": "dotenv -e ../../.env -- tsx scripts/webhook-generator.ts",
+    "webhooks:stream": "dotenv -e ../../.env -- tsx scripts/webhook-generator.ts --stream"
   },
   "dependencies": {
     "@conduit/contracts": "workspace:*",
@@ -24,6 +26,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/throttler": "^6.0.0",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "bullmq": "^5.0.0",

@@ -29,6 +29,19 @@ export class AppConfigService {
     return this.config.get('EMAIL_FROM', { infer: true });
   }
 
+  /** Whether ingest HMAC verification is enforced (false = local/mock bypass). */
+  get webhookVerifyEnabled() {
+    return this.config.get('WEBHOOK_VERIFY', { infer: true });
+  }
+
+  get throttleTtlMs() {
+    return this.config.get('THROTTLE_TTL_MS', { infer: true });
+  }
+
+  get throttleLimit() {
+    return this.config.get('THROTTLE_LIMIT', { infer: true });
+  }
+
   /** Per-source HMAC secret, e.g. WEBHOOK_SECRET_STRIPE for source "stripe". */
   webhookSecret(source: string): string | undefined {
     return process.env[`WEBHOOK_SECRET_${source.toUpperCase()}`];

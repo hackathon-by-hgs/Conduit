@@ -1,8 +1,19 @@
-import { Controller, Headers, Param, Post, type RawBodyRequest, Req } from '@nestjs/common';
+import {
+  Controller,
+  Headers,
+  Param,
+  Post,
+  type RawBodyRequest,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { SIGNATURE_HEADER, type WebhookIngestResponse } from '@conduit/contracts';
 import { WebhooksService } from './webhooks.service';
 
+// Rate-limit the ingest endpoint (config: THROTTLE_TTL_MS / THROTTLE_LIMIT). Excess → 429.
+@UseGuards(ThrottlerGuard)
 @Controller('webhooks')
 export class WebhooksController {
   constructor(private readonly webhooks: WebhooksService) {}

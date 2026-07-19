@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WebhookIngestResponse } from '@conduit/contracts';
+import { verifyPayload } from '../../common/crypto/signature';
 import { AppConfigService } from '../../config/config.service';
 import { QUEUE_NAMES } from '../../queue/queue.constants';
 import { DELIVERY_JOB_NAME, type DeliveryJobData } from '../../queue/job.types';
@@ -43,7 +43,7 @@ export class WebhooksService {
     if (!duplicate) {
       await this.deliveryQueue.add(
         DELIVERY_JOB_NAME,
-        { eventId: event.id },
+        { eventId: event.id, source, receivedAt: event.receivedAt.toISOString() },
         { removeOnComplete: true, removeOnFail: false },
       );
     }
@@ -52,19 +52,25 @@ export class WebhooksService {
   }
 
   /**
-   * HMAC-SHA256 over the exact raw bytes. Dev fallback: if no per-source secret is
-   * configured, the check is skipped (with a warning).
+   * Strict per-source HMAC-SHA256 (over the exact raw bytes). Rejects unconfigured
+   * sources and bad/missing signatures with 401. Set WEBHOOK_VERIFY=false to bypass
+   * locally (mock/FE dev only).
    *
-   * TODO(BE1 · P0): harden — per-source secret management + source-specific signature
-   * schemes (e.g. Stripe's `t=...,v1=...`).
+   * TODO(BE1): source-specific signature schemes where a provider differs from plain
+   * hex HMAC (e.g. Stripe's `t=...,v1=...`).
    */
   private verifySignature(source: string, rawBody: Buffer, signature?: string): void {
+    if (!this.config.webhookVerifyEnabled) {
+      this.logger.warn(`WEBHOOK_VERIFY is off — skipping signature check for "${source}".`);
+      return;
+    }
+
     const secret = this.config.webhookSecret(source);
     if (!secret) {
-      this.logger.warn(
-        `No WEBHOOK_SECRET_${source.toUpperCase()} configured; skipping signature check.`,
-      );
-      return;
+      throw new UnauthorizedException({
+        code: 'UNKNOWN_SOURCE',
+        message: `No signing secret configured for source "${source}"`,
+      });
     }
     if (!signature) {
       throw new UnauthorizedException({
@@ -72,10 +78,7 @@ export class WebhooksService {
         message: 'Missing signature header',
       });
     }
-    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-    const a = Buffer.from(expected);
-    const b = Buffer.from(signature);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    if (!verifyPayload(secret, rawBody, signature)) {
       throw new UnauthorizedException({
         code: 'INVALID_SIGNATURE',
         message: 'Invalid signature',

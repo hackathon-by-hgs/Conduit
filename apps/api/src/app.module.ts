@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/config.module';
+import { AppConfigService } from './config/config.service';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { HealthModule } from './modules/health/health.module';
@@ -14,6 +16,12 @@ import { StatsModule } from './modules/stats/stats.module';
   imports: [
     // Infrastructure
     AppConfigModule,
+    ThrottlerModule.forRootAsync({
+      inject: [AppConfigService],
+      useFactory: (config: AppConfigService) => [
+        { ttl: config.throttleTtlMs, limit: config.throttleLimit },
+      ],
+    }),
     PrismaModule,
     QueueModule,
     // Feature modules (vertical slices)
