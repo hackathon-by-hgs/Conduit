@@ -82,22 +82,46 @@ export function mockEventDetail(id: string): EventDetailDto {
   return { ...base, id, sends: sendsWithAttempts };
 }
 
-const dlqSend: SendDto = {
-  id: 'snd_dlq_1',
-  causedBy: 'evt_2',
-  channel: 'email',
-  to: 'ops@example.com',
-  status: 'dead_lettered',
-  attempts: 5,
-  lastError: 'provider_timeout',
-  createdAt: '2026-07-19T11:50:00.000Z',
-  deliveredAt: null,
-};
+const dlqSends: SendDto[] = [
+  {
+    id: 'snd_dlq_1',
+    causedBy: 'evt_2',
+    channel: 'email',
+    to: 'ops@example.com',
+    status: 'dead_lettered',
+    attempts: 5,
+    lastError: 'provider_timeout',
+    createdAt: '2026-07-19T11:50:00.000Z',
+    deliveredAt: null,
+  },
+  {
+    id: 'snd_dlq_2',
+    causedBy: 'evt_3',
+    channel: 'sms',
+    to: '+1 555 0142',
+    status: 'dead_lettered',
+    attempts: 5,
+    lastError: 'invalid_recipient',
+    createdAt: '2026-07-19T10:20:00.000Z',
+    deliveredAt: null,
+  },
+  {
+    id: 'snd_dlq_3',
+    causedBy: 'evt_4',
+    channel: 'webhook',
+    to: 'https://hooks.partner.dev/inbound',
+    status: 'dead_lettered',
+    attempts: 5,
+    lastError: 'connection_refused',
+    createdAt: '2026-07-18T22:05:00.000Z',
+    deliveredAt: null,
+  },
+];
 
 export const mockSends: Paginated<SendDto> = {
-  items: [dlqSend],
+  items: dlqSends,
   nextCursor: null,
-  total: 1,
+  total: dlqSends.length,
 };
 
 const gaps: GapDto[] = [
