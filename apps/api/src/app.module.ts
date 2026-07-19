@@ -4,6 +4,7 @@ import { AppConfigModule } from './config/config.module';
 import { AppConfigService } from './config/config.service';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
+import { OutboxModule } from './outbox/outbox.module';
 import { HealthModule } from './modules/health/health.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { EventsModule } from './modules/events/events.module';
@@ -24,6 +25,7 @@ import { StatsModule } from './modules/stats/stats.module';
     }),
     PrismaModule,
     QueueModule,
+    OutboxModule, // drains the transactional outbox → BullMQ (crash-safe hand-off)
     // Feature modules (vertical slices)
     HealthModule,
     WebhooksModule, // BE1 — ingest

@@ -31,7 +31,8 @@ export class SendsRepository {
         where,
         take: limit + 1,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        orderBy: { createdAt: 'desc' },
+        // Total ordering (createdAt is non-unique) so keyset pagination can't skip/repeat.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.send.count({ where }),
     ]);

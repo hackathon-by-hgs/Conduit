@@ -48,7 +48,8 @@ export class EventsRepository {
         where,
         take: limit + 1, // +1 to detect the next page
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        orderBy: { receivedAt: 'desc' },
+        // Total ordering (receivedAt is non-unique) so keyset pagination can't skip/repeat.
+        orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.webhookEvent.count({ where }),
     ]);

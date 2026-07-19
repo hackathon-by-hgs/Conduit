@@ -42,6 +42,34 @@ export class AppConfigService {
     return this.config.get('THROTTLE_LIMIT', { infer: true });
   }
 
+  get outboxDispatchIntervalMs() {
+    return this.config.get('OUTBOX_DISPATCH_INTERVAL_MS', { infer: true });
+  }
+
+  get outboxBatchSize() {
+    return this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
+  }
+
+  get deliveryMaxAttempts() {
+    return this.config.get('DELIVERY_MAX_ATTEMPTS', { infer: true });
+  }
+
+  get deliveryBackoffMs() {
+    return this.config.get('DELIVERY_BACKOFF_MS', { infer: true });
+  }
+
+  get deliveryDedupWindowMs() {
+    return this.config.get('DELIVERY_DEDUP_WINDOW_MS', { infer: true });
+  }
+
+  get deliveryFailRate() {
+    return this.config.get('DELIVERY_FAIL_RATE', { infer: true });
+  }
+
+  get reconcileIntervalMs() {
+    return this.config.get('RECONCILE_INTERVAL_MS', { infer: true });
+  }
+
   /** Per-source HMAC secret, e.g. WEBHOOK_SECRET_STRIPE for source "stripe". */
   webhookSecret(source: string): string | undefined {
     return process.env[`WEBHOOK_SECRET_${source.toUpperCase()}`];

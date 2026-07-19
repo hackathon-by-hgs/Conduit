@@ -19,7 +19,7 @@ model WebhookEvent {
   id             String         @id @default(uuid())
   source         String
   type           String
-  idempotencyKey String         @unique // ← the correctness guarantee
+  idempotencyKey String // unique per source — see @@unique below
   status         String         @default("received")
   payload        Json
   signature      String?
@@ -27,10 +27,30 @@ model WebhookEvent {
   processedAt    DateTime?
   sends          Send[]
   gaps           ReconcileGap[]
+  outbox         OutboxJob[]
 
-  @@index([status, receivedAt])
-  @@index([source, receivedAt])
+  @@unique([source, idempotencyKey]) // the correctness guarantee (per-source idempotency)
+  @@index([status, receivedAt, id]) // covers filter + keyset sort (receivedAt, id)
+  @@index([source, receivedAt, id])
   @@map("webhook_events")
+}
+
+/// Transactional outbox: a delivery hand-off written in the SAME transaction as the event,
+/// so persist+enqueue-intent are atomic. A dispatcher drains `pending` rows to BullMQ
+/// (FOR UPDATE SKIP LOCKED). Survives crashes: undispatched rows are re-drained on recovery.
+model OutboxJob {
+  id           String       @id @default(uuid())
+  eventId      String
+  event        WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type         String       @default("deliver")
+  payload      Json
+  status       String       @default("pending") // pending | dispatched
+  attempts     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  dispatchedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("outbox_jobs")
 }
 
 model Send {
@@ -43,13 +63,15 @@ model Send {
   status         String         @default("pending")
   attempts       Int            @default(0)
   lastError      String?
+  dedupeKey      String? // hash(to+channel+payload) — collapses near-duplicate sends in a window
   createdAt      DateTime       @default(now())
   deliveredAt    DateTime?
   attemptHistory Attempt[]
   gaps           ReconcileGap[]
 
-  @@index([status, createdAt])
+  @@index([status, createdAt, id]) // covers filter + keyset sort (createdAt, id)
   @@index([causedBy])
+  @@index([dedupeKey, createdAt]) // delivery-dedup window lookup
   @@map("sends")
 }
 
@@ -80,5 +102,8 @@ model ReconcileGap {
   resolvedAt DateTime?
 
   @@index([type, detectedAt])
+  // NOTE: a partial UNIQUE index `reconcile_gaps_open_unique` on (type, eventId, sendId)
+  // WHERE resolvedAt IS NULL (NULLS NOT DISTINCT) is managed by raw migration — Prisma
+  // can't express partial/NULLS-NOT-DISTINCT indexes, so keep it out of migrate dev drift.
   @@map("reconcile_gaps")
 }
