@@ -1,76 +1,751 @@
 # Conduit
 
-Reliable webhook delivery — end to end, with proof. Ingest → deliver (retry/DLQ) →
-reconcile, with a live dashboard.
+> **The Event Reliability SDK — receive, deliver, and reconcile every event, with proof.**
 
-**Stack:** Turborepo · NestJS 11 · Next.js 16 (App Router) · PostgreSQL + Prisma 7 ·
-Redis + BullMQ · Zustand · TanStack Query · Tailwind v4.
+Conduit is a drop-in service and companion dashboard that makes event-driven plumbing reliable end to end. It **ingests inbound webhooks exactly once**, **delivers the resulting outbound notifications** (email / SMS / webhook) with retries and a dead-letter queue, and **continuously reconciles the two sides** so a developer can prove no event was lost, duplicated, or silently dropped.
 
-## Layout
+> **The pitch, in one line:** _if you receive webhooks and send anything in response, you already need this._
+
+Reliable delivery of events, end to end, **with proof**. The webhook handler and the sender are the two ends of one pipe; the reconciler is the audit layer that makes the pipe trustworthy — turning three fragile, hand-rolled tools into one coherent product.
+
+<!-- Badges are placeholders until CI and a license file are added. -->
+
+![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
+![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a)
+![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)
+![License](https://img.shields.io/badge/license-TBD-lightgrey)
+
+---
+
+## Table of Contents
+
+- [Problem Statement](#problem-statement)
+- [Why Conduit](#why-conduit)
+- [Solution Overview](#solution-overview)
+- [The Defensible Metric](#the-defensible-metric)
+- [Key Features](#key-features)
+- [Screenshots](#screenshots)
+- [Demo Links](#demo-links)
+- [Tech Stack](#tech-stack)
+- [System Architecture](#system-architecture)
+- [How It Works](#how-it-works)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Environment Variables](#environment-variables)
+  - [Running the Project](#running-the-project)
+  - [Database Setup](#database-setup)
+- [API Documentation](#api-documentation)
+- [Authentication Flow](#authentication-flow)
+- [Frontend Architecture](#frontend-architecture)
+- [Backend Architecture](#backend-architecture)
+- [Database Schema Overview](#database-schema-overview)
+- [State Management](#state-management)
+- [Design Decisions](#design-decisions)
+- [Performance Optimizations](#performance-optimizations)
+- [Security Considerations](#security-considerations)
+- [Accessibility Considerations](#accessibility-considerations)
+- [Error Handling Strategy](#error-handling-strategy)
+- [Testing](#testing)
+- [Deployment Guide](#deployment-guide)
+- [CI/CD](#cicd)
+- [Implementation Status](#implementation-status)
+- [Future Improvements](#future-improvements)
+- [Known Limitations](#known-limitations)
+- [Contributors](#contributors)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
+---
+
+## Problem Statement
+
+Every product that talks to other systems rebuilds the same fragile plumbing: an endpoint that receives webhooks (Stripe, Paystack, GitHub, a partner), logic that reacts to them, and an outbound send (a receipt email, an SMS, a webhook to yet another system). This plumbing fails in quiet, expensive ways:
+
+- The same webhook arrives twice — providers retry — and the customer is emailed twice or charged twice.
+- A webhook is received but the process crashes before finishing; the effect never happens and nobody notices.
+- An outbound provider is briefly down and the notification is simply lost.
+- Weeks later, nobody can answer _"did every payment event actually send its receipt?"_
+
+Teams solve this ad hoc, badly, once per project.
+
+## Why Conduit
+
+**Every fintech, SaaS, and marketplace speaks webhooks — and every one of them re-solves the same problem.** Payment processors, git hosts, and partner APIs fire billions of webhooks a day, each with at-least-once delivery, which means duplicates and retries are not edge cases — they are the contract. The failures are silent until they are expensive: a double charge, a missing receipt, a compliance question nobody can answer.
+
+Today, teams have two bad options:
+
+- **Roll it yourself** — rebuild idempotency, retries, backoff, a dead-letter queue, and a reconciliation job in every service, and hope you got the edge cases right.
+- **Trust a black box** — adopt a delivery tool that hides the internals, and simply believe it when it says everything shipped.
+
+Conduit takes a third path, and that path is the wedge: **one-line integration _and_ a verifiable guarantee.** Sending is idempotent by default (the magic), but the reliability and reconciliation state is fully visible, queryable, and controllable (the transparency). For anything touching money, audit, or correctness, developers distrust magic — so letting a skeptical engineer _inspect_ the event log and _prove_ the invariant holds is the differentiator, not a footnote.
+
+> Conduit unifies three ideas that are usually three separate tools: webhook idempotency/reliability, multi-channel delivery, and reconciliation — under one thesis: _reliable event delivery, end to end, with proof._
+
+## Solution Overview
+
+Conduit is the reusable answer. Drop it in and inbound-to-outbound event flow becomes **reliable and auditable** without rebuilding idempotency, retries, and reconciliation every time.
+
+The system is three parts on one pipe:
+
+| Part                                 | Role                                                                                                                                                                                                                                     |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A · Webhook Handler** (inbound)    | Verifies HMAC signatures, assigns an idempotency key, and persists the raw event durably _before_ any processing, so a duplicate or a crash can never cause a double effect or a lost event.                                             |
+| **B · Delivery / Sender** (outbound) | A unified send API routed to providers, with retries (exponential backoff + jitter), a dead-letter queue (DLQ), and one-click / API replay.                                                                                              |
+| **C · Reconciler** (audit)           | Continuously checks the invariant — _every processed inbound event has its expected outbound send in a terminal state_ — and surfaces gaps (`no_send`, `orphan_send`, `duplicate_send`, `stuck`) immediately, with an exportable report. |
+
+The `causedBy` field is the thread that links every outbound send back to the inbound event that caused it, which is what lets the reconciler tie the two ends together.
+
+## The Defensible Metric
+
+The claim isn't "trust us" — it's measurable. The test: run **N events with injected duplicates, ~15% provider failures, and a mid-processing crash**, first through a naive receiver (processes every webhook and fires sends inline, no idempotency, no retry, no reconciliation), then through Conduit.
+
+| Metric                              | Naive baseline        | With Conduit            |
+| ----------------------------------- | --------------------- | ----------------------- |
+| Duplicate outbound sends            | occurs on every retry | **0** — idempotency     |
+| Events received but not acted on    | lost on crash         | **0** — durable log     |
+| Failed sends recovered              | lost                  | **100%** via DLQ replay |
+| Injected reconciliation gaps caught | undetected            | **100%**                |
+
+> These are the targets the design is built to hit; the real figures come from the reproducible harness, so they are defensible under scrutiny rather than marketing numbers. See [Implementation Status](#implementation-status) for exactly which pieces are live versus stubbed today.
+
+**Demo in under three minutes:** start the seed generator → open an event and watch its delivery timeline (attempts + backoff gaps) → point at the duplicate-webhook counter (processed once, not twice) → open the DLQ, replay a failed send, watch it go green → open the reconciliation dashboard, see an injected gap flagged, and click through to its source event.
+
+## Key Features
+
+- **Exactly-once ingest** — a unique `idempotencyKey` constraint makes duplicate webhooks return the original event instead of re-processing.
+- **Durable-before-processing** — the raw event is persisted before any work, so a mid-processing crash never loses it.
+- **Reliable delivery** — a BullMQ-backed queue drives retries with backoff + jitter and dead-letters exhausted sends.
+- **One-click / API replay** — dead-lettered sends can be re-enqueued individually or in bulk; replays are idempotent.
+- **Continuous reconciliation** — a background reconciler detects and persists gaps between events and their expected sends.
+- **Live dashboard** — a Next.js app with a live event stream, DLQ + replay UI, and a reconciliation gap explorer that deep-links each gap to the offending event.
+- **Live updates with graceful degradation** — Server-Sent Events push change notifications, with an automatic polling fallback if the stream drops.
+- **Typed, shared contract** — a single `@conduit/contracts` package is the source of truth for every DTO, enum, route, and request shape, imported by both apps.
+
+## Screenshots
+
+> _Placeholders — replace with real captures before submission._
+
+| Events stream                                            | Reconciliation dashboard                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `![Events](docs/screenshots/events.png)` _(placeholder)_ | `![Reconciliation](docs/screenshots/reconciliation.png)` _(placeholder)_ |
+
+| DLQ + replay                                       | Event delivery timeline                                      |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| `![DLQ](docs/screenshots/dlq.png)` _(placeholder)_ | `![Timeline](docs/screenshots/timeline.png)` _(placeholder)_ |
+
+## Demo Links
+
+> _Placeholders — fill in once deployed._
+
+- **Live app:** `https://<your-vercel-app>.vercel.app` _(placeholder)_
+- **API:** `https://<your-render-service>.onrender.com` _(placeholder)_
+- **Demo video:** `<link>` _(placeholder)_
+
+---
+
+## Tech Stack
+
+**Monorepo:** [Turborepo](https://turbo.build) + [pnpm](https://pnpm.io) workspaces, TypeScript throughout, ESLint 9 + Prettier, shared version pins via the pnpm `catalog:` protocol.
+
+| Layer              | Technology                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| **Frontend**       | Next.js 16 (App Router, React 19), TanStack Query 5, Zustand 5, Tailwind CSS v4               |
+| **Backend**        | NestJS 11 (Express platform), RxJS, `class-validator` / `class-transformer`                   |
+| **Database**       | PostgreSQL 16, Prisma 7 (new `prisma-client` generator + `@prisma/adapter-pg` driver adapter) |
+| **Queue / jobs**   | Redis 7 + BullMQ 5 (`@nestjs/bullmq`)                                                         |
+| **Realtime**       | Server-Sent Events (NestJS `@Sse` + RxJS), client `EventSource` with polling fallback         |
+| **Email provider** | Resend (`resend` SDK)                                                                         |
+| **Validation**     | Zod 4 (env + shared request schemas), NestJS `ValidationPipe`                                 |
+| **Authentication** | HMAC-SHA256 webhook signature verification (see [Authentication Flow](#authentication-flow))  |
+| **AI / ML**        | Not applicable — Conduit contains no AI/ML functionality.                                     |
+| **Infrastructure** | Docker Compose (local Postgres + Redis)                                                       |
+| **Deployment**     | API → Render (`render.yaml`); Web → Vercel                                                    |
+
+---
+
+## System Architecture
+
+Conduit is a **Turborepo monorepo** with two deployables — a NestJS API and a Next.js dashboard — plus a framework-agnostic `@conduit/contracts` package that both import, so the wire format can never drift. The API is built as **vertical feature slices** behind a single uniform request pipeline; the queue **decouples fast, durable ingest from slower, fallible delivery**; and a reconciler audits the two ends against a single invariant.
+
+### Guiding principles
+
+- **Contract-first** — every DTO, enum, route, and request schema lives in one package; nothing is redefined at either edge.
+- **Persist before you process** — inbound events are durable before any work, so a crash is recoverable by construction.
+- **Decouple ingest from delivery** — ingest only validates, deduplicates, persists, and enqueues; all fallible outbound work happens asynchronously in a worker.
+- **One error shape, one time format** — every non-2xx response is the `ApiError` envelope; every timestamp is ISO 8601 UTC; absent values are `null`.
+- **Repository boundary** — Prisma is imported only inside `*.repository.ts`; services stay persistence-agnostic.
+
+### High-level topology
+
+```mermaid
+flowchart LR
+  P[Provider webhook<br/>Stripe / GitHub / partner] -->|POST /webhooks/:source<br/>x-signature| H
+
+  subgraph API[NestJS API — vertical slices]
+    direction TB
+    H[Webhooks<br/>HMAC verify · dedupe · persist] -->|deliver job| Q[[Redis · BullMQ<br/>delivery queue]]
+    Q --> W[Delivery worker<br/>send · record attempt · retry · DLQ]
+    R[Reconciler<br/>invariant check · gap detection]
+    RD[Read API<br/>events · sends · reconcile · stats]
+    S[SSE /stream<br/>change notifications]
+  end
+
+  H --> DB[(PostgreSQL<br/>events · sends · attempts · gaps)]
+  W --> DB
+  W --> EM[Providers<br/>Email / SMS / Webhook]
+  R --> DB
+  RD --> DB
+  W -.status change.-> S
+  R -.gap detected.-> S
+
+  RD -->|REST| FE[Next.js dashboard<br/>events · DLQ · reconciliation · stats]
+  S -->|SSE| FE
+```
+
+### Component responsibilities
+
+| Component           | Module (`apps/api/src/modules/…`) | Responsibility                                                                           |
+| ------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Webhook handler** | `webhooks`                        | Verify HMAC over raw bytes, extract the idempotency key, persist once, enqueue a job.    |
+| **Read API**        | `events`                          | Cursor-paginated event list and event detail (with nested sends + attempts).             |
+| **Delivery worker** | `delivery`                        | Consume jobs, create sends, call the provider, record attempts, retry with backoff, DLQ. |
+| **Sends API**       | `delivery`                        | List sends (DLQ = `dead_lettered`) and replay a dead-lettered send (idempotent).         |
+| **Reconciler**      | `reconciliation`                  | Check the invariant, detect and persist gaps idempotently, serve the report.             |
+| **Stream**          | `stream`                          | Publish change notifications to SSE subscribers (+ heartbeat).                           |
+| **Stats**           | `stats`                           | Aggregate dashboard counts.                                                              |
+| **Shared contract** | `packages/contracts`              | DTOs, enums, routes, request/SSE schemas — imported by both apps.                        |
+
+### Request lifecycle — inbound webhook to reconciled
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Prov as Provider
+  participant Ctl as WebhooksController
+  participant Svc as WebhooksService
+  participant DB as PostgreSQL
+  participant Q as BullMQ queue
+  participant Wk as DeliveryProcessor
+  participant Prv as Provider SDK (Resend)
+  participant Rec as Reconciler
+
+  Prov->>Ctl: POST /webhooks/:source (raw body + x-signature)
+  Ctl->>Svc: ingest(source, rawBody, signature)
+  Svc->>Svc: HMAC-SHA256 verify (timing-safe)
+  Svc->>DB: createIfNew(idempotencyKey UNIQUE)
+  alt duplicate key
+    DB-->>Svc: existing event (duplicate = true)
+    Svc-->>Ctl: { id, duplicate: true }  // no re-processing
+  else new event
+    DB-->>Svc: new event (duplicate = false)
+    Svc->>Q: add "deliver" { eventId }
+    Svc-->>Ctl: { id, duplicate: false }
+    Q->>Wk: process(job)
+    Wk->>DB: create Send (causedBy = eventId)
+    Wk->>Prv: send(...)
+    Prv-->>Wk: result (status / error)
+    Wk->>DB: record Attempt; on exhaustion → status = dead_lettered
+    Wk-->>Stream: publish send.updated
+  end
+  Rec->>DB: scan invariant (processed events vs terminal sends)
+  Rec->>DB: persist new gaps (idempotent)
+  Rec-->>Stream: publish gap.detected
+```
+
+### API request pipeline
+
+Every request flows through the same layers, configured globally in `main.ts`:
 
 ```
-apps/
-  api/        NestJS — webhooks · events · delivery · reconciliation · stream · stats
-  web/        Next.js 16 App Router — events · dlq · reconciliation · stats
-packages/
-  contracts/  ★ shared DTOs + zod + routes (source of truth — both apps import it)
-  tsconfig/   shared TS base configs
-  eslint-config/
+raw body capture  →  CORS (WEB_ORIGIN)  →  ValidationPipe (whitelist + transform)
+    →  Controller  →  Service  →  Repository (Prisma)  →  Mapper → DTO
+Errors ─────────────────────────────────────────────►  AllExceptionsFilter → ApiError envelope
+Every request ─────────────────────────────────────►  LoggingInterceptor
 ```
 
-## Prerequisites
+`rawBody: true` is enabled at bootstrap specifically so the webhook handler can compute HMAC over the exact received bytes — parsing then re-serializing would change them and break signature verification.
 
-Node ≥ 20.19 (24 recommended) · pnpm 9 · Docker (Postgres + Redis).
+### Realtime & cache-invalidation flow
 
-## Getting started
+The stream is deliberately "dumb": it broadcasts _that_ something changed, not the diff. The client maps each event kind to a targeted TanStack Query invalidation and refetches — far less error-prone than streaming state, and it degrades cleanly.
+
+```mermaid
+sequenceDiagram
+  participant API as StreamService
+  participant SSE as GET /stream
+  participant Cli as useConduitStream (client)
+  participant QC as TanStack Query
+
+  API-->>SSE: StreamEvent { kind }
+  SSE-->>Cli: EventSource message
+  Cli->>QC: invalidate keys for that kind (events / sends / reconcile / stats)
+  QC-->>Cli: refetch affected queries
+  Note over Cli: if the stream drops for a grace period,<br/>fall back to polling every ~3s until it reconnects
+```
+
+### Data flow & the `causedBy` thread
+
+`webhook_events` is the source of truth. Each `Send` carries `causedBy = event.id`, and each `Attempt` carries `sendId` — so the full chain **event → send → attempt** is walkable in both directions. The reconciler relies on exactly this thread to answer _"does every processed event have its expected send in a terminal state, and does every send trace back to an event?"_ Gaps reference the offending `eventId` and/or `sendId`, which is what powers the dashboard's deep-link from a gap straight to its source event.
+
+### Scalability & deployment topology
+
+- **Stateless API** — the HTTP surface holds no per-request state, so it scales horizontally behind a load balancer.
+- **Queue as a shock absorber** — BullMQ decouples ingest from delivery, so a burst of webhooks or a downstream provider outage is absorbed by the queue instead of dropping events or blocking the request path. The worker can run as its own process and scale independently of the API.
+- **Database access patterns** — every list endpoint is cursor-paginated (no `OFFSET` scans), backed by composite indexes matching the dashboard's queries (`(status, receivedAt)`, `(source, receivedAt)`, `(status, createdAt)`, `causedBy`, `(type, detectedAt)`).
+- **Redis** already backs the queue and is the natural backend for multi-instance SSE fan-out (pub/sub) as the fleet grows.
+
+> **Current single-instance caveats (hackathon stage):** the delivery worker runs **in-process** with the API, and `StreamService` uses an in-memory subject — so horizontal scaling of SSE would need a Redis-backed fan-out, and the worker would be split into its own process. These are deployment changes, not redesigns; the queue boundary already makes them drop-in. See [Known Limitations](#known-limitations).
+
+### Failure model & guarantees
+
+| Failure injected                    | How Conduit contains it                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| Provider re-delivers the same event | Unique `idempotencyKey` → the duplicate returns the original; no re-processing. |
+| Process crashes mid-processing      | Event is persisted _before_ any work → recoverable; nothing is lost.            |
+| Outbound provider is down / flaky   | Retries with exponential backoff + jitter; exhausted sends land in the DLQ.     |
+| A send is stuck or never happened   | The reconciler flags it (`stuck` / `no_send`) and links it to the source event. |
+| A send has no source event          | The reconciler flags it (`orphan_send`).                                        |
+
+---
+
+## How It Works
+
+### Core Workflow
+
+1. **Receive.** A provider POSTs to `/webhooks/:source`. The handler verifies the HMAC signature over the exact raw bytes, extracts an idempotency key (`idempotencyKey` or `id` from the payload), and persists the event. A duplicate key returns the original event and is **not** re-processed.
+2. **Enqueue.** For genuinely new events, a `deliver` job is added to the BullMQ delivery queue — the inbound → outbound hand-off.
+3. **Deliver.** The delivery worker creates `Send` rows (linked by `causedBy`), delivers via the provider, records each `Attempt`, retries with exponential backoff + jitter, and dead-letters after the max attempts.
+4. **Reconcile.** A background reconciler checks the invariant and persists any newly-detected gaps, idempotently (an open gap for the same `(type, event, send)` is not re-emitted).
+5. **Observe.** The dashboard reads events, sends, gaps, and stats over REST, and subscribes to `/stream` (SSE) to refetch on change — falling back to polling if the stream drops.
+
+---
+
+## Project Structure
+
+```
+conduit/
+├── apps/
+│   ├── api/                        # NestJS service
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma        # data model (events, sends, attempts, gaps)
+│   │   │   ├── migrations/
+│   │   │   └── seed.ts              # realistic events, sends, attempts, DLQ + a gap
+│   │   └── src/
+│   │       ├── main.ts              # bootstrap: rawBody, ValidationPipe, filter, CORS
+│   │       ├── app.module.ts        # composition of feature modules
+│   │       ├── config/              # zod-validated env + typed config service
+│   │       ├── common/
+│   │       │   ├── prisma/          # PrismaService (driver adapter)
+│   │       │   ├── filters/         # AllExceptionsFilter → ApiError envelope
+│   │       │   ├── interceptors/    # request logging
+│   │       │   └── pagination/      # cursor helpers
+│   │       ├── queue/               # BullMQ names + job types
+│   │       └── modules/             # vertical slices (controller · service · repository · mapper)
+│   │           ├── webhooks/        # BE1 — ingest (HMAC, dedupe, persist, enqueue)
+│   │           ├── events/          # BE1 — read API (list + detail)
+│   │           ├── delivery/        # BE2 — sends, retry, DLQ, worker, Resend provider
+│   │           ├── reconciliation/  # BE2 — invariant + gap detection
+│   │           ├── stream/          # BE2 — SSE
+│   │           ├── stats/           # BE2 — dashboard counts
+│   │           └── health/          # liveness
+│   └── web/                         # Next.js App Router dashboard
+│       └── src/
+│           ├── app/                 # routes: /events, /events/[id], /dlq, /reconciliation
+│           ├── components/ui/       # shared presentational primitives
+│           ├── features/            # feature slices: <domain>/{api,hooks,components}
+│           │   ├── events/          # list, detail, delivery timeline, filters, highlight
+│           │   ├── delivery/        # DLQ, replay, bulk replay
+│           │   ├── reconciliation/  # gaps, deep-link, CSV export, health strip
+│           │   └── stats/           # overview counts
+│           ├── lib/                 # api-client, query-client, query-keys, sse, filters, format
+│           ├── stores/              # Zustand: filters, selection, toast, stream
+│           └── mocks/               # API-shaped fixtures + adapter (mock mode)
+├── packages/
+│   ├── contracts/                  # ★ shared DTOs, enums, zod schemas, routes, SSE contract
+│   ├── tsconfig/                   # shared TS base configs
+│   └── eslint-config/              # shared ESLint config
+├── docker-compose.yml              # local Postgres (5435) + Redis (6380)
+├── render.yaml                     # API deployment (Render)
+├── turbo.json                      # task graph
+└── pnpm-workspace.yaml             # workspaces + version catalog
+```
+
+`packages/contracts` is the backbone: **no wire type is defined outside it**, and both apps import it, so the frontend and backend can never drift.
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Node.js ≥ 20.19** (24 recommended)
+- **pnpm 9** (`corepack enable` will provision the pinned `pnpm@9.15.9`)
+- **Docker** (for local Postgres + Redis)
+
+### Environment Variables
+
+Copy the example and fill in secrets:
 
 ```bash
-cp .env.example .env            # fill RESEND_API_KEY / WEBHOOK_SECRET_* as needed
-pnpm install
-docker compose up -d            # postgres:5432 + redis:6379
-pnpm db:generate                # generate the Prisma 7 client (src/generated/prisma)
-pnpm db:migrate                 # apply migrations
-pnpm db:seed                    # realistic events, sends, attempts, DLQ + one injected gap
-pnpm dev                        # turbo runs api (:3001) + web (:3000)
+cp .env.example .env
 ```
 
-The web app defaults to **mock mode** (`NEXT_PUBLIC_USE_MOCKS=true` in `apps/web/.env.local`)
-so every view renders before the API is up. Flip it to `false` to hit the live API.
+| Variable                  | Scope | Description                                                                                                                                 |
+| ------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | API   | PostgreSQL connection string. Defaults point at the Docker service on host port **5435**.                                                   |
+| `REDIS_URL`               | API   | Redis connection string. Defaults to the Docker service on host port **6380**.                                                              |
+| `API_PORT`                | API   | Port the NestJS API listens on (default `3001`).                                                                                            |
+| `WEB_ORIGIN`              | API   | Allowed CORS origin (default `http://localhost:3000`).                                                                                      |
+| `RESEND_API_KEY`          | API   | Resend API key for email delivery. Optional in dev (a stub key is used).                                                                    |
+| `EMAIL_FROM`              | API   | From-address for outbound email.                                                                                                            |
+| `WEBHOOK_SECRET_<SOURCE>` | API   | Per-source HMAC secret, e.g. `WEBHOOK_SECRET_STRIPE`. If unset for a source, signature verification is **skipped in dev** (with a warning). |
+| `NEXT_PUBLIC_API_URL`     | Web   | Base URL of the API (exposed to the browser).                                                                                               |
+| `NEXT_PUBLIC_USE_MOCKS`   | Web   | `true` renders every view against in-memory fixtures; `false` hits the live API.                                                            |
 
-## Scripts (root)
+> The API validates its environment at boot with Zod (`apps/api/src/config/env.schema.ts`) — an invalid or missing required variable fails fast with a clear message.
 
-| Command | What |
-|---|---|
-| `pnpm dev` | api + web in parallel (Turbo) |
-| `pnpm build` | build everything (contracts first) |
-| `pnpm typecheck` / `pnpm lint` / `pnpm test` | across the graph |
-| `pnpm db:migrate` / `pnpm db:seed` | Prisma migrate / seed (via dotenv-cli → root `.env`) |
+### Running the Project
 
-## Architecture rules (enforced in review)
+```bash
+pnpm install                 # install all workspaces
+docker compose up -d         # Postgres (5435) + Redis (6380)
+pnpm db:generate             # generate the Prisma 7 client (src/generated/prisma)
+pnpm db:migrate              # apply migrations
+pnpm db:seed                 # seed realistic data + one injected gap
+pnpm dev                     # Turbo runs API (:3001) and Web (:3000) together
+```
 
-- No Prisma import outside a `*.repository.ts`.
-- No wire type defined outside `packages/contracts`.
-- No server data in Zustand (UI intent only; server state lives in TanStack Query).
+Run the two apps individually if you prefer:
+
+```bash
+# Backend (NestJS, watch mode)
+pnpm --filter @conduit/api dev
+
+# Frontend (Next.js)
+pnpm --filter @conduit/web dev
+```
+
+> **Mock mode:** the web app ships with `NEXT_PUBLIC_USE_MOCKS=true` in `apps/web/.env.local`, so every screen renders against realistic fixtures before the API is up. Flip it to `false` (and set `NEXT_PUBLIC_API_URL`) to hit the live backend.
+
+### Database Setup
+
+Prisma 7 uses the new `prisma-client` generator with a Postgres **driver adapter**; the connection URL lives in `prisma.config.ts` / `DATABASE_URL`, not in `schema.prisma`.
+
+```bash
+pnpm db:generate         # regenerate the client after schema changes
+pnpm db:migrate          # create/apply a dev migration
+pnpm db:seed             # seed sample data
+pnpm --filter @conduit/api db:studio   # open Prisma Studio
+```
+
+For production migrations (used by the Render start command):
+
+```bash
+pnpm --filter @conduit/api db:migrate:deploy
+```
+
+---
+
+## API Documentation
+
+Base URL: `http://localhost:3001`. All list endpoints are **cursor-paginated** and return the `Paginated<T>` envelope. All non-2xx responses return the shared `ApiError` envelope. There is **no Swagger/OpenAPI document** in the repository yet — the contract lives in `packages/contracts` (routes in `src/routes.ts`, DTOs in `src/dto`).
+
+| Method | Path                | Description                                                                |
+| ------ | ------------------- | -------------------------------------------------------------------------- |
+| `POST` | `/webhooks/:source` | Ingest a webhook: HMAC verify → dedupe → persist → enqueue.                |
+| `GET`  | `/events`           | List events (cursor + filters: `status`, `source`, `from`, `to`, `limit`). |
+| `GET`  | `/events/:id`       | Event detail with nested sends and attempts.                               |
+| `GET`  | `/sends`            | List sends (filter by `status`; DLQ = `dead_lettered`).                    |
+| `POST` | `/sends/:id/replay` | Re-enqueue a dead-lettered send (idempotent).                              |
+| `GET`  | `/reconcile`        | Reconciliation report (`Gap[]` + summary; optional `from`/`to`).           |
+| `GET`  | `/stream`           | Server-Sent Events: pushes event / send / gap change notifications.        |
+| `GET`  | `/stats`            | Dashboard counts.                                                          |
+| `GET`  | `/health`           | Liveness probe.                                                            |
+
+### Request / Response Examples
+
+**Ingest a webhook**
+
+```bash
+curl -X POST http://localhost:3001/webhooks/stripe \
+  -H "Content-Type: application/json" \
+  -H "x-signature: <hex HMAC-SHA256 of the raw body>" \
+  -d '{ "id": "evt_stripe_001", "type": "payment_intent.succeeded", "amount": 4200 }'
+```
+
+```jsonc
+// 201 Created
+{ "id": "3f2c…", "duplicate": false }
+```
+
+**List events**
+
+```bash
+curl "http://localhost:3001/events?status=failed&limit=20"
+```
+
+```jsonc
+// 200 OK — Paginated<EventDto>
+{
+  "items": [
+    {
+      "id": "evt_2",
+      "source": "github",
+      "type": "push",
+      "idempotencyKey": "evt_github_002",
+      "status": "failed",
+      "payload": { "ref": "refs/heads/main" },
+      "receivedAt": "2026-07-19T11:58:00.000Z",
+      "processedAt": null,
+    },
+  ],
+  "nextCursor": null,
+  "total": 1,
+}
+```
+
+**Event detail** (`GET /events/:id`) returns the event plus `sends[]`, each with an `attemptHistory[]` (attempt number, status code, error, duration, and `nextRetryAt` for the backoff gap) — this powers the delivery timeline.
+
+**Reconciliation report**
+
+```bash
+curl "http://localhost:3001/reconcile"
+```
+
+```jsonc
+// 200 OK — ReconcileReportDto
+{
+  "gaps": [
+    {
+      "id": "gap_1",
+      "type": "no_send",
+      "eventId": "evt_2",
+      "sendId": null,
+      "detail": "Processed event evt_2 has no send in a terminal state.",
+      "detectedAt": "2026-07-19T12:00:30.000Z",
+      "resolvedAt": null,
+    },
+  ],
+  "summary": { "no_send": 1, "orphan_send": 0, "duplicate_send": 0, "stuck": 0, "total": 1 },
+  "lastRunAt": "2026-07-19T12:00:30.000Z",
+  "invariantHolds": false,
+}
+```
+
+**Error envelope** (every non-2xx response)
+
+```jsonc
+// e.g. 401 Unauthorized
+{
+  "statusCode": 401,
+  "code": "INVALID_SIGNATURE",
+  "message": "Invalid signature",
+  "timestamp": "2026-07-19T12:00:00.000Z",
+  "path": "/webhooks/stripe",
+}
+```
+
+**Conventions**
+
 - Timestamps are ISO 8601 UTC strings; absent values are `null`, never `undefined`.
-- Every error returns the `ApiError` envelope; every list endpoint is cursor-paginated.
+- `Paginated<T>` = `{ items, nextCursor, total }`; `nextCursor: null` means the end.
 
-## Scaffold status
+---
 
-This is the **scaffold**: the workspace, the full contract package, the Prisma schema, and
-every module/route wired end to end. Read paths (events, sends, reconcile, stats) query real
-data; webhook ingest persists idempotently + enqueues. The correctness-critical feature logic
-is left as clearly-marked `TODO(BEx)` stubs for the owning devs:
+## Authentication Flow
 
-- **BE2 delivery** — the BullMQ worker (`delivery.processor.ts`): real Resend send, attempt
-  recording, exponential backoff + jitter, dead-lettering.
-- **BE2** — `POST /sends/:id/replay` (idempotent re-enqueue) and the scheduled reconciler job
-  that *detects* gaps (`reconciliation.service.ts#runReconciler`).
-- **BE1** — hardened per-source HMAC schemes (`webhooks.service.ts#verifySignature`).
-- **BE1/BE2** — `duplicatesRejected` metric in `/stats`.
+Conduit has no user login — it is a machine-to-machine service. "Authentication" is **provider webhook verification** on ingest:
 
-## Deployment
+1. The API is created with `rawBody: true` so the exact received bytes are available.
+2. A provider sends the HMAC signature in the `x-signature` header.
+3. `WebhooksService.verifySignature` looks up the per-source secret (`WEBHOOK_SECRET_<SOURCE>`), computes `HMAC-SHA256(rawBody, secret)`, and compares it against the header using `crypto.timingSafeEqual` (constant-time, length-checked).
+4. A missing or mismatched signature is rejected with `401 INVALID_SIGNATURE`.
+5. **Dev fallback:** if no secret is configured for a source, the check is skipped with a warning, so local testing doesn't require secrets.
 
-- **API → Render** — `render.yaml` (free Postgres + Redis; worker in-process; `/health` check).
-- **Web → Vercel** — root `apps/web`; build command
-  `cd ../.. && pnpm turbo run build --filter=@conduit/web`; set `NEXT_PUBLIC_API_URL` to the
-  Render URL and `NEXT_PUBLIC_USE_MOCKS=false`.
+> Source-specific signature schemes (e.g. Stripe's `t=…,v1=…` format) and hardened per-source secret management are flagged as follow-up work (see [Implementation Status](#implementation-status)).
+
+---
+
+## Frontend Architecture
+
+- **Next.js App Router**, feature-sliced by domain: `features/<domain>/{api,hooks,components}`, with `lib/` (client plumbing), `stores/` (UI state), `mocks/`, and shared `components/ui/`.
+- **Clear logic/UI seam:** data hooks and query/mutation options expose typed data and handlers; presentational components consume them. This lets data and design be built in parallel without colliding.
+- **Server state vs UI intent:** all server data lives in **TanStack Query**; **Zustand** only holds UI intent (filters, row selection, toasts, stream status) — never a copy of server data.
+- **Typed API client** (`lib/api-client.ts`): a thin `fetch` wrapper that unwraps the `ApiError` envelope into a typed `ApiClientError`, and transparently routes to the mock adapter in mock mode.
+- **Optimistic mutations:** replay and bulk replay remove sends from the DLQ immediately, keep a snapshot for rollback, and report success/partial-failure via toasts.
+- **Live updates:** `useConduitStream` maps SSE events to targeted query invalidations, and falls back to polling every few seconds if the stream can't hold a connection.
+- **Cursor pagination:** events and sends expose infinite-query options over the `Paginated<T>` contract.
+- **Deep-link contract:** reconciliation gaps link to `/events/[id]?highlight=<sendId>`; the events detail reads the same `highlight` param to focus the offending send.
+
+## Backend Architecture
+
+- **NestJS vertical slices:** each feature module is `controller · service · repository · mapper`, composed in `app.module.ts`.
+- **Repository pattern:** Prisma is only imported inside `*.repository.ts`; services stay persistence-agnostic and map rows to DTOs via mappers.
+- **Global cross-cutting layers** (wired in `main.ts`):
+  - `ValidationPipe` (`whitelist`, `transform`, `forbidNonWhitelisted`) validates and strips request DTOs.
+  - `AllExceptionsFilter` renders every error as the shared `ApiError` envelope with a machine-readable `code`.
+  - `LoggingInterceptor` logs each request.
+  - CORS is restricted to `WEB_ORIGIN`.
+- **Config:** `AppConfigService` wraps a Zod-validated environment; unknown keys such as `WEBHOOK_SECRET_*` are read on demand.
+- **Persistence:** `PrismaService` connects via the `@prisma/adapter-pg` driver adapter.
+- **Queue:** BullMQ (`@nestjs/bullmq`) with a single `delivery` queue; the webhook handler enqueues a `deliver` job carrying `{ eventId }`.
+- **Realtime:** the `/stream` controller merges a `StreamService` subject with a 15s heartbeat and serializes `StreamEvent`s as SSE messages.
+
+## Database Schema Overview
+
+PostgreSQL via Prisma. Four tables, linked by `causedBy` (send → event) and the gap references:
+
+| Table            | Purpose                          | Notable columns / constraints                                                                                                   |
+| ---------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `webhook_events` | Inbound events (source of truth) | `idempotencyKey` **unique** (the correctness guarantee); `status`; indexes on `(status, receivedAt)` and `(source, receivedAt)` |
+| `sends`          | Outbound sends                   | `causedBy` → event (cascade delete); `status`, `attempts`, `lastError`; indexes on `(status, createdAt)` and `causedBy`         |
+| `attempts`       | Per-send delivery attempts       | `(sendId, attemptNo)` **unique**; `statusCode`, `error`, `durationMs`, `nextRetryAt`                                            |
+| `reconcile_gaps` | Detected reconciliation gaps     | `type`, nullable `eventId` / `sendId` (set-null on delete), `detail`, `detectedAt`, `resolvedAt`; index on `(type, detectedAt)` |
+
+Status vocabularies (from `@conduit/contracts`): `EventStatus` = `received | processing | processed | failed`; `SendStatus` = `pending | sent | failed | dead_lettered`; `GapType` = `no_send | orphan_send | duplicate_send | stuck`.
+
+## State Management
+
+- **TanStack Query** owns all server state, with a centralized query-key factory (`lib/query-keys.ts`) for surgical invalidation and a tuned client (`staleTime`, no retry on 4xx, no retry on mutations since they roll back).
+- **Zustand** owns UI intent only: `filters` (URL-synced), `selection` (DLQ multi-select), `toast`, and `stream` status.
+- **Mock adapter** (`mocks/`) mirrors the real API — stateful replay, cursor pagination, and query filtering — so the UI is fully exercisable in mock mode.
+
+---
+
+## Design Decisions
+
+- **A frozen, shared contract package.** `@conduit/contracts` is committed first and imported by both apps; no wire type is defined anywhere else, so the two ends cannot drift.
+- **"Stripe-clean to call, transparent to inspect."** One-line integration and idempotent-by-default behavior, but the reliability and reconciliation state is fully visible and queryable — never a black box.
+- **Idempotency as a database constraint,** not application logic — the `idempotencyKey` unique index makes exactly-once a property of the data, not a race-prone check.
+- **Persist before processing** so a crash is recoverable by design.
+- **SSE kept deliberately dumb** — it broadcasts "something changed" and the client refetches, rather than streaming diffs, which is far less error-prone and degrades cleanly to polling.
+- **Logic/UI seam on the frontend** so data and design work proceed independently.
+
+## Performance Optimizations
+
+- Cursor pagination on every list endpoint (no `OFFSET` scans).
+- Targeted composite indexes matching the dashboard's query patterns.
+- Optimistic UI updates for instant feedback on replay.
+- SSE push instead of aggressive polling, with polling only as a fallback.
+- Query `staleTime` and disabled window-focus refetch to avoid redundant network calls.
+- Turborepo task caching and a single version `catalog:` so tooling majors bump in one place.
+
+## Security Considerations
+
+- HMAC-SHA256 verification over the exact raw request bytes, compared in constant time (`timingSafeEqual`).
+- Strict request validation (`ValidationPipe` with `whitelist` + `forbidNonWhitelisted`).
+- CORS restricted to `WEB_ORIGIN`.
+- Environment validated at boot; the process refuses to start with an invalid config.
+- Secrets never reach the browser — only `NEXT_PUBLIC_*` values are exposed to the client.
+- Idempotency prevents duplicate side effects from provider retries.
+
+> **Note:** in development, signature verification is skipped when a source has no configured secret. Ensure every production source has `WEBHOOK_SECRET_<SOURCE>` set.
+
+## Accessibility Considerations
+
+- Semantic HTML with labelled controls (e.g. `aria-label` on selection checkboxes; toasts use `role="status"`).
+- State communicated through text and shape, not color alone.
+- Intentional empty, loading, and error states that explain the next step.
+
+> A full audit (keyboard traversal, focus management, contrast) is recommended before release — treat this section as a baseline, not a certification.
+
+## Error Handling Strategy
+
+- **One error shape everywhere:** the API's global filter emits the `ApiError` envelope with a machine-readable `code`; the client unwraps it into a typed `ApiClientError`.
+- **Retry policy:** queries skip retries on 4xx (they won't self-heal); mutations never retry (they are optimistic and roll back on failure).
+- **Optimistic rollback:** failed replays restore the previous cache snapshot and surface a toast.
+- **Every screen** designs its loading, empty, and error states explicitly.
+
+---
+
+## Testing
+
+```bash
+pnpm test                              # unit tests across the workspace (Vitest)
+pnpm --filter @conduit/web test        # frontend unit tests
+pnpm --filter @conduit/api test        # backend unit tests
+pnpm --filter @conduit/api test:int    # backend integration tests (needs Postgres + Redis)
+```
+
+- **Frontend unit tests** cover the pure logic layer: filter parse/serialize, the gap deep-link contract, the CSV serializer, the age formatter, and the mock adapter's filtering + pagination.
+- **Backend** includes unit tests (mappers) and integration specs (`*.int.spec.ts`) for webhook idempotency and the reconciler, which run against real Postgres + Redis via a separate Vitest config.
+- **Quality gates:** `pnpm typecheck`, `pnpm lint`, and `pnpm test` run across every package through Turborepo.
+
+---
+
+## Deployment Guide
+
+**API → Render** (`render.yaml`):
+
+- Build: `pnpm install && pnpm turbo run build --filter=@conduit/api && pnpm --filter @conduit/api db:generate`
+- Start: `pnpm --filter @conduit/api db:migrate:deploy && pnpm --filter @conduit/api start:prod`
+- Health check: `/health`
+- Provisions a free Postgres database and Redis instance; set `WEB_ORIGIN`, `RESEND_API_KEY`, and `EMAIL_FROM` as service secrets.
+
+**Web → Vercel:**
+
+- Root directory: `apps/web`
+- Build command: `cd ../.. && pnpm turbo run build --filter=@conduit/web`
+- Set `NEXT_PUBLIC_API_URL` to the Render API URL and `NEXT_PUBLIC_USE_MOCKS=false`.
+
+**Local infrastructure:** `docker-compose.yml` runs Postgres (host `5435`) and Redis (host `6380`) with health checks.
+
+> **Free-tier caveats (from `render.yaml`):** services sleep after inactivity (cold start ~30s — warm before a demo); the BullMQ worker runs in-process with the API at this stage; SSE relies on the 15s heartbeat + the client polling fallback through the proxy.
+
+## CI/CD
+
+No CI/CD workflows are present in the repository yet (`.github/workflows` does not exist). **Recommended next step:** add a GitHub Actions workflow running `pnpm install`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` on pull requests. _(Placeholder — requires manual completion.)_
+
+---
+
+## Implementation Status
+
+Conduit is a working scaffold with the full contract, schema, and every module and route wired end to end. Read paths (events, sends, reconcile, stats), webhook ingest (idempotent persist + enqueue), and the entire frontend logic layer are implemented and tested. A few correctness-critical backend pieces are intentionally left as clearly-marked `TODO(BEx)` stubs for their owners and are **not yet functional**:
+
+- **Delivery worker** (`delivery.processor.ts`) — real send, `Send`/`Attempt` creation, backoff + jitter, and dead-lettering (currently a logging stub).
+- **`POST /sends/:id/replay`** — returns `501 Not Implemented` pending the idempotent re-enqueue.
+- **Resend provider** — returns a stubbed `202` instead of performing a live send.
+- **Reconciler scheduling** — `runReconciler()` is implemented but not yet wired to a periodic schedule; `orphan_send` detection is pending.
+- **`duplicatesRejected` stat** — currently returns `0` (duplicates aren't yet counted in a metric).
+- **Hardened per-source HMAC schemes** — beyond the generic HMAC-SHA256 verification.
+
+This section is deliberately explicit so reviewers know exactly what is live versus stubbed.
+
+## Future Improvements
+
+- Complete the delivery worker, replay, and scheduled reconciler (the stubs above).
+- SMS channel delivery (currently a log-only stub in scope).
+- CSV export and time-window gap filtering wired into the reconciliation UI (logic is implemented).
+- OpenAPI/Swagger generation from the shared contract.
+- CI pipeline and end-to-end tests.
+- Multi-tenant support, template design studio, and analytics (explicitly out of the current scope).
+
+## Known Limitations
+
+- Several backend features are stubbed (see [Implementation Status](#implementation-status)).
+- On free-tier hosting the worker runs in-process with the API and services cold-start after inactivity.
+- No authenticated user layer — Conduit is a machine-to-machine service.
+- Signature verification is skipped for sources without a configured secret in development.
+
+---
+
+## Contributors
+
+Built by a team of four across two days, each owning a vertical slice of the pipe:
+
+| Role    | GitHub                                           | Area                                            |
+| ------- | ------------------------------------------------ | ----------------------------------------------- |
+| **BE1** | [@Maxima24](https://github.com/Maxima24)         | Ingest, persistence, events read API            |
+| **BE2** | [@professor-12](https://github.com/professor-12) | Delivery, retry/DLQ, reconciliation, SSE, stats |
+| **FE1** | [@ZEED2468](https://github.com/ZEED2468)         | App shell, event stream, event detail           |
+| **FE2** | [@Ferousco-dev](https://github.com/Ferousco-dev) | DLQ, reconciliation dashboard, stats            |
+
+## License
+
+No `LICENSE` file is present in the repository yet. _(Placeholder — add a license, e.g. MIT, and update this section and the badge.)_
+
+## Acknowledgements
+
+Built with [NestJS](https://nestjs.com), [Next.js](https://nextjs.org), [Prisma](https://www.prisma.io), [BullMQ](https://docs.bullmq.io), [TanStack Query](https://tanstack.com/query), [Zustand](https://zustand-demo.pmnd.rs), [Tailwind CSS](https://tailwindcss.com), [Resend](https://resend.com), and [Turborepo](https://turbo.build).
