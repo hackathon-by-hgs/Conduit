@@ -452,11 +452,28 @@ sequenceDiagram
 
 ### Core Workflow
 
-1. **Receive.** A provider POSTs to `/webhooks/:source`. The handler verifies the HMAC signature over the exact raw bytes, extracts an idempotency key (`idempotencyKey` or `id` from the payload), and persists the event. A duplicate key returns the original event and is **not** re-processed.
-2. **Enqueue.** For genuinely new events, a `deliver` job is added to the BullMQ delivery queue — the inbound → outbound hand-off.
-3. **Deliver.** The delivery worker creates `Send` rows (linked by `causedBy`), delivers via the provider, records each `Attempt`, retries with exponential backoff + jitter, and dead-letters after the max attempts.
-4. **Reconcile.** A background reconciler checks the invariant and persists any newly-detected gaps, idempotently (an open gap for the same `(type, event, send)` is not re-emitted).
-5. **Observe.** The dashboard reads events, sends, gaps, and stats over REST, and subscribes to `/stream` (SSE) to refetch on change — falling back to polling if the stream drops.
+<table>
+  <tr>
+    <td width="52" align="center" valign="top"><img src="https://api.iconify.design/lucide/webhook.svg?color=%236C4CF1" width="22" /><br/><sub><b>1</b></sub></td>
+    <td><b>Receive.</b> A provider POSTs to <code>/webhooks/:source</code>. The handler verifies the HMAC signature over the exact raw bytes, extracts an idempotency key (<code>idempotencyKey</code> or <code>id</code> from the payload), and persists the event. A duplicate key returns the original event and is <b>not</b> re-processed.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/list-plus.svg?color=%236C4CF1" width="22" /><br/><sub><b>2</b></sub></td>
+    <td><b>Enqueue.</b> For genuinely new events, a <code>deliver</code> job is added to the BullMQ delivery queue — the inbound-to-outbound hand-off.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/send.svg?color=%236C4CF1" width="22" /><br/><sub><b>3</b></sub></td>
+    <td><b>Deliver.</b> The delivery worker creates <code>Send</code> rows (linked by <code>causedBy</code>), delivers via the provider, records each <code>Attempt</code>, retries with exponential backoff + jitter, and dead-letters after the max attempts.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/scale.svg?color=%236C4CF1" width="22" /><br/><sub><b>4</b></sub></td>
+    <td><b>Reconcile.</b> A background reconciler checks the invariant and persists any newly-detected gaps, idempotently (an open gap for the same <code>(type, event, send)</code> is not re-emitted).</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/monitor-dot.svg?color=%236C4CF1" width="22" /><br/><sub><b>5</b></sub></td>
+    <td><b>Observe.</b> The dashboard reads events, sends, gaps, and stats over REST, and subscribes to <code>/stream</code> (SSE) to refetch on change — falling back to polling if the stream drops.</td>
+  </tr>
+</table>
 
 ---
 
@@ -866,12 +883,26 @@ Status vocabularies (from `@conduit/contracts`): `EventStatus` = `received | pro
 
 ## Security Considerations
 
-- HMAC-SHA256 verification over the exact raw request bytes, compared in constant time (`timingSafeEqual`).
-- Strict request validation (`ValidationPipe` with `whitelist` + `forbidNonWhitelisted`).
-- CORS restricted to `WEB_ORIGIN`.
-- Environment validated at boot; the process refuses to start with an invalid config.
-- Secrets never reach the browser — only `NEXT_PUBLIC_*` values are exposed to the client.
-- Idempotency prevents duplicate side effects from provider retries.
+<table>
+  <tr>
+    <td width="34" align="center" valign="top"><img src="https://api.iconify.design/lucide/shield-check.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Signed webhooks.</b> HMAC-SHA256 over the exact raw request bytes, compared in constant time (<code>timingSafeEqual</code>).</td>
+    <td width="34" align="center" valign="top"><img src="https://api.iconify.design/lucide/filter.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Strict validation.</b> <code>ValidationPipe</code> with <code>whitelist</code> + <code>forbidNonWhitelisted</code> strips unknown fields.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/globe-lock.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Locked CORS.</b> Requests are restricted to <code>WEB_ORIGIN</code>.</td>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/settings-2.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Validated config.</b> The environment is Zod-checked at boot; the process refuses to start with an invalid config.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/eye-off.svg?color=%232ea44f" width="18" /></td>
+    <td><b>No leaked secrets.</b> Only <code>NEXT_PUBLIC_*</code> values reach the browser.</td>
+    <td align="center" valign="top"><img src="https://api.iconify.design/lucide/fingerprint.svg?color=%232ea44f" width="18" /></td>
+    <td><b>Replay-safe.</b> Idempotency prevents duplicate side effects from provider retries.</td>
+  </tr>
+</table>
 
 > **Note:** in development, signature verification is skipped when a source has no configured secret. Ensure every production source has `WEBHOOK_SECRET_<SOURCE>` set.
 
