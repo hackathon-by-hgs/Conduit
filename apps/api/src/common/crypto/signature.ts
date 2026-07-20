@@ -1,22 +1,13 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
-
 /**
- * Webhook signature scheme (single source of truth, reused by the ingest service and the
- * webhook generator): HMAC-SHA256 over the exact raw body bytes, lowercase hex, carried in
- * the `x-signature` header.
+ * Webhook signature scheme — HMAC-SHA256 over the exact raw body bytes, lowercase hex,
+ * carried in the `x-signature` header.
+ *
+ * The implementation lives in `@conduit/sdk` and is re-exported here so the ingest service,
+ * the webhook generator and every SDK consumer provably run the same code. A signing scheme
+ * that drifts between client and server fails silently and looks like an auth bug, so there
+ * is deliberately only one copy.
+ *
+ * It cannot live in `@conduit/contracts`: the web app imports that package, and `node:crypto`
+ * would break the browser bundle.
  */
-
-export function signPayload(secret: string, rawBody: Buffer | string): string {
-  return createHmac('sha256', secret).update(rawBody).digest('hex');
-}
-
-export function verifyPayload(
-  secret: string,
-  rawBody: Buffer | string,
-  signature: string,
-): boolean {
-  const expected = Buffer.from(signPayload(secret, rawBody));
-  const provided = Buffer.from(signature);
-  // Length check first — timingSafeEqual throws on length mismatch.
-  return expected.length === provided.length && timingSafeEqual(expected, provided);
-}
+export { signPayload, verifyPayload } from '@conduit/sdk';

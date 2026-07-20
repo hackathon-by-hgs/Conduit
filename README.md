@@ -638,6 +638,7 @@ cp .env.example .env
 | `WEB_ORIGIN`              | API   | Allowed CORS origin (default `http://localhost:3000`).                                                                                                                    |
 | `RESEND_API_KEY`          | API   | Resend API key. A real `re_...` key ⇒ **LIVE** mode (real email). Absent/placeholder ⇒ **SIMULATED** mode — retry/DLQ/replay behave identically but nothing is sent.      |
 | `DELIVERY_BACKOFF_CAP_MS` | API   | Ceiling for the exponential retry backoff (default `60000`).                                                                                                              |
+| `AUTO_DELIVER`            | API   | Auto-send for every ingested event (default `true`). Set `false` when using `@conduit/sdk`, where your code calls `conduit.send()` instead.                               |
 | `EMAIL_FROM`              | API   | From-address for outbound email.                                                                                                                                          |
 | `WEBHOOK_SECRET_<SOURCE>` | API   | Per-source HMAC secret, e.g. `WEBHOOK_SECRET_MONNIFY` (your Monnify client secret). If unset for a source, signature verification is **skipped in dev** (with a warning). |
 | `NEXT_PUBLIC_API_URL`     | Web   | Base URL of the API (exposed to the browser).                                                                                                                             |
@@ -696,6 +697,7 @@ Base URL: `http://localhost:3001`. All list endpoints are **cursor-paginated** a
 | Method | Path                | Description                                                                |
 | ------ | ------------------- | -------------------------------------------------------------------------- |
 | `POST` | `/webhooks/:source` | Ingest a webhook: HMAC verify → dedupe → persist → enqueue.                |
+| `POST` | `/sends`            | Create an outbound send (idempotent). The endpoint behind `conduit.send()`. |
 | `GET`  | `/events`           | List events (cursor + filters: `status`, `source`, `from`, `to`, `limit`). |
 | `GET`  | `/events/:id`       | Event detail with nested sends and attempts.                               |
 | `GET`  | `/sends`            | List sends (filter by `status`; DLQ = `dead_lettered`).                    |
@@ -988,9 +990,15 @@ for the detailed write-up and reproduction steps):
   and never sends a real SMS.
 - **CSV export** — `GET /reconcile/export.csv`, honouring the same filters as the JSON report.
 
+- **The SDK** (`packages/sdk`) — `handle()`, `send()`, `reconcile()` plus read helpers,
+  Express and Fetch adapters. See [its README](packages/sdk/README.md). Run the service with
+  `AUTO_DELIVER=false` when using it, so your `send()` calls are the only deliveries.
+
 **Still stubbed / not built:**
 
 - **`webhook` channel** — a valid `Channel` in the contract with no provider yet; falls back to email.
+- **Authentication** — the API is unauthenticated, so the SDK takes only a base URL. The
+  `/sdk/keys` and `/sdk/scopes` dashboard pages are static UI with no backend.
 - **Hardened per-source HMAC schemes** — beyond generic HMAC-SHA256, including **Monnify's
   SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
 =======

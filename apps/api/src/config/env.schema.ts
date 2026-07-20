@@ -20,6 +20,19 @@ export const envSchema = z.object({
   // Outbox dispatcher (drains persisted delivery intents to BullMQ).
   OUTBOX_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+  /**
+   * Auto-pilot: every ingested event automatically produces a send, with the recipient read
+   * from its payload. Default on, which is what the seed script, webhook generator and demo
+   * rely on.
+   *
+   * Set to false when driving Conduit through the SDK: there, YOUR code decides what to send
+   * via `conduit.send()` / `POST /sends`. Leaving it on while also calling send() means an
+   * event gets both an automatic delivery and your explicit one — two real messages.
+   */
+  AUTO_DELIVER: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false' && v !== '0'),
   // Delivery worker: retry/backoff/DLQ + near-duplicate collapse window.
   DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   DELIVERY_BACKOFF_MS: z.coerce.number().int().positive().default(1000),

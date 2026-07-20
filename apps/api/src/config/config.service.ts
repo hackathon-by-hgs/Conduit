@@ -50,6 +50,11 @@ export class AppConfigService {
     return this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
   }
 
+  /** Whether the worker auto-creates a send for every ingested event (off = SDK-driven). */
+  get autoDeliver() {
+    return this.config.get('AUTO_DELIVER', { infer: true });
+  }
+
   get deliveryMaxAttempts() {
     return this.config.get('DELIVERY_MAX_ATTEMPTS', { infer: true });
   }
