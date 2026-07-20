@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
-import { Unplug } from 'lucide-react';
+import { PlugsConnected } from '@phosphor-icons/react';
 import type { AccessEntity } from './access-data';
 import { SectionHeading } from './capability-surface';
 
@@ -56,7 +56,7 @@ export function ScopeBuilder(props: ScopeBuilderProps) {
       <div className={`scope-route-machine ${connected ? 'is-connected' : 'is-interrupted'}`}>
         <div className="scope-route-rail">
           <span>ACCESS PATH / EFFECTIVE POLICY</span>
-          <span className={connected ? 'text-[#00ff94]/70' : 'text-red-200/65'}>
+          <span className={connected ? 'text-[var(--app-accent)]/70' : 'text-red-200/65'}>
             {connected ? 'SIGNAL CONTINUOUS' : 'SIGNAL SEVERED'}
           </span>
         </div>
@@ -87,13 +87,13 @@ export function ScopeBuilder(props: ScopeBuilderProps) {
                   >
                     <div className="relative z-10 flex items-start justify-between font-mono text-[8px] uppercase tracking-[0.18em]">
                       <span className="text-white/24">L{String(index + 1).padStart(2, '0')}</span>
-                      <span className={dimmed ? 'text-white/14' : 'text-[#00ff94]/62'}>{dimmed ? 'OFFLINE' : 'LINKED'}</span>
+                      <span className={dimmed ? 'text-white/14' : 'text-[var(--app-accent)]/62'}>{dimmed ? 'OFFLINE' : 'LINKED'}</span>
                     </div>
                     <span className="scope-route-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                     <div className="relative z-10 mt-auto">
                       <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-white/25">{level.label}</p>
                       <p className="mt-2 max-w-[150px] truncate font-display text-base font-semibold text-white/76">{value}</p>
-                      {selectable ? <p className="mt-3 font-mono text-[7px] uppercase tracking-[0.15em] text-white/20 group-hover/stage:text-[#00ff94]/62">Select context</p> : null}
+                      {selectable ? <p className="mt-3 font-mono text-[7px] uppercase tracking-[0.15em] text-white/20 group-hover/stage:text-[var(--app-accent)]/62">Select context</p> : null}
                     </div>
                   </button>
 
@@ -129,7 +129,7 @@ export function ScopeBuilder(props: ScopeBuilderProps) {
             onClick={() => onConnectionChange(!connected)}
             className={`scope-path-command ${connected ? 'is-connected' : 'is-interrupted'}`}
           >
-            <Unplug className="h-3.5 w-3.5" /> {connected ? 'Interrupt path' : 'Restore path'}
+            <PlugsConnected className="h-3.5 w-3.5" weight="bold" /> {connected ? 'Interrupt path' : 'Restore path'}
           </button>
         </div>
       </div>

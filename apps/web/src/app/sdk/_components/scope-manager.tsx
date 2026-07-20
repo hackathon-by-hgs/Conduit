@@ -1,15 +1,24 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
-import { ArrowRight, Check, FileJson2, Save, ShieldAlert } from 'lucide-react';
-import { ENTITIES, INITIAL_GRANTS, getScope, type AccessEntity } from './access-data';
-import { CapabilityMatrix } from './capability-matrix';
-import { CapabilitySurface } from './capability-surface';
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  FileCode,
+  FloppyDisk,
+  MagnifyingGlass,
+  Power,
+  ShieldWarning,
+} from '@phosphor-icons/react';
+import { ALL_SCOPES, ENTITIES, INITIAL_GRANTS, SCOPE_GROUPS, getScope, type AccessEntity } from './access-data';
 import { CAPABILITIES } from './control-data';
 import { PermissionInspector, useInspectorResize, type InspectorEvent } from './permission-inspector';
-import { ScopeBuilder } from './scope-builder';
+import { AccessTopology } from './access-topology';
+import { CapabilitySurface } from './capability-surface';
+import { ScopeViewSwitcher, type ScopeView } from './scope-view-switcher';
 import { SimulationLane } from './simulation-lane';
 
 gsap.registerPlugin(useGSAP);
@@ -27,8 +36,11 @@ export function ScopeManager() {
   const rootRef = useRef<HTMLElement>(null);
   const [entities] = useState<AccessEntity[]>(ENTITIES);
   const [grants, setGrants] = useState<Record<string, string[]>>(() => structuredClone(INITIAL_GRANTS));
+  const [selectedGroup, setSelectedGroup] = useState('events');
+  const [_selectedScope, setSelectedScope] = useState('events:read');
   const [selectedCapability, setSelectedCapability] = useState('events');
-  const [selectedScope, setSelectedScope] = useState('events:stream');
+  const [activeView, setActiveView] = useState<ScopeView>('permissions');
+  const [searchQuery, setSearchQuery] = useState('');
   const [focusedEntity, setFocusedEntity] = useState('team-alpha');
   const [connected, setConnected] = useState(true);
   const [lastChanged, setLastChanged] = useState<string | null>(null);
@@ -38,16 +50,12 @@ export function ScopeManager() {
   const [pendingGrant, setPendingGrant] = useState<PendingGrant>(null);
   const [history, setHistory] = useState<InspectorEvent[]>(INITIAL_HISTORY);
   const [notice, setNotice] = useState<string | null>(null);
+  const [generationKey, setGenerationKey] = useState(0);
   const { width: inspectorWidth, startResize } = useInspectorResize();
 
   const focused = entities.find((entity) => entity.id === focusedEntity) ?? entities[0];
   const focusedGrants = grants[focused.id] ?? [];
   const effectiveGrants = connected ? focusedGrants : [];
-  const unionCount = useMemo(
-    () => new Set(entities.flatMap((entity) => grants[entity.id] ?? [])).size,
-    [entities, grants],
-  );
-
   useGSAP(
     () => {
       gsap.from('[data-command-head] > *', {
@@ -57,27 +65,65 @@ export function ScopeManager() {
         duration: 0.52,
         ease: 'power3.out',
       });
-      gsap.to('[data-control-grid]', {
-        backgroundPosition: '120px 84px, 0 0',
-        duration: 24,
-        repeat: -1,
-        ease: 'none',
-      });
     },
     { scope: rootRef },
   );
 
-  useGSAP(
-    () => {
-      if (!lastChanged) return;
-      gsap.fromTo(
-        '[data-permission-signal]',
-        { xPercent: -10, opacity: 0 },
-        { xPercent: 105, opacity: 1, duration: 0.9, ease: 'power2.inOut' },
-      );
-    },
-    { scope: rootRef, dependencies: [lastChanged] },
-  );
+  const focusCapability = (capabilityId: string, scopeId: string) => {
+    setSelectedCapability(capabilityId);
+    setSelectedScope(scopeId);
+    const group = SCOPE_GROUPS.find((item) => item.scopes.some((scope) => scope.id === scopeId));
+    if (group) setSelectedGroup(group.id);
+    setActiveView('permissions');
+  };
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 1800);
+  };
+
+  const executeSearch = () => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    const entity = entities.find((item) => (
+      item.label.toLowerCase().includes(query) || item.id.toLowerCase().includes(query)
+    ));
+    if (entity) {
+      setFocusedEntity(entity.id);
+      setSearchQuery('');
+      showNotice(`Context switched to ${entity.label}`);
+      return;
+    }
+
+    const scope = ALL_SCOPES.find((item) => (
+      item.id.toLowerCase().includes(query) || item.description.toLowerCase().includes(query)
+    ));
+    const capability = CAPABILITIES.find((item) => (
+      item.title.toLowerCase().includes(query)
+      || item.id.toLowerCase().includes(query)
+      || item.scopes.some((scopeId) => scopeId.includes(query))
+      || (scope ? item.scopes.includes(scope.id) : false)
+    ));
+
+    if (capability) {
+      focusCapability(capability.id, scope?.id ?? capability.scopes[0]);
+      setSearchQuery('');
+      showNotice(`Focused ${capability.title}`);
+      return;
+    }
+
+    const group = SCOPE_GROUPS.find((item) => item.label.toLowerCase().includes(query));
+    if (group) {
+      const mappedCapability = CAPABILITIES.find((item) => item.scopes.includes(group.scopes[0].id));
+      focusCapability(mappedCapability?.id ?? selectedCapability, group.scopes[0].id);
+      setSearchQuery('');
+      showNotice(`Focused ${group.label}`);
+      return;
+    }
+
+    showNotice(`No SDK capability matched "${searchQuery.trim()}"`);
+  };
 
   const pushHistory = (action: string, detail: string, tone: InspectorEvent['tone'] = 'neutral') => {
     setHistory((current) => [
@@ -113,8 +159,8 @@ export function ScopeManager() {
 
   const toggleScope = (scopeId: string, entityId = focused.id) => {
     setSelectedScope(scopeId);
-    const capability = CAPABILITIES.find((item) => item.scopes.includes(scopeId));
-    if (capability) setSelectedCapability(capability.id);
+    const group = SCOPE_GROUPS.find((item) => item.scopes.some((scope) => scope.id === scopeId));
+    if (group) setSelectedGroup(group.id);
 
     const granted = grants[entityId]?.includes(scopeId) ?? false;
     const scope = getScope(scopeId);
@@ -123,11 +169,6 @@ export function ScopeManager() {
       return;
     }
     applyGrant(scopeId, [entityId], !granted);
-  };
-
-  const selectCapability = (capabilityId: string, scopeId: string) => {
-    setSelectedCapability(capabilityId);
-    setSelectedScope(scopeId);
   };
 
   const updateConnection = (nextConnected: boolean) => {
@@ -140,8 +181,8 @@ export function ScopeManager() {
   const generatePolicy = async () => {
     const policy = JSON.stringify({ entity: focused.id, connected, permissions: effectiveGrants }, null, 2);
     await navigator.clipboard.writeText(policy);
-    setNotice('Policy generated and copied');
-    window.setTimeout(() => setNotice(null), 1800);
+    setGenerationKey((current) => current + 1);
+    showNotice('SDK policy generated and copied');
   };
 
   const saveChanges = () => {
@@ -155,7 +196,6 @@ export function ScopeManager() {
   const publish = () => {
     const sweep = document.querySelector<HTMLElement>('.policy-publish-sweep');
     const statusLabel = rootRef.current?.querySelector<HTMLElement>('[data-status-label]');
-    const liveReadouts = rootRef.current?.querySelectorAll<HTMLElement>('[data-live-readout]');
 
     if (sweep) {
       gsap.fromTo(sweep, { width: 0, opacity: 1 }, {
@@ -166,17 +206,6 @@ export function ScopeManager() {
         onComplete: () => { gsap.to(sweep, { opacity: 0, duration: 0.25 }); },
       });
     }
-    if (liveReadouts?.length) {
-      gsap.to(liveReadouts, {
-        color: '#00ff94',
-        duration: 0.2,
-        repeat: 1,
-        yoyo: true,
-        stagger: 0.03,
-        clearProps: 'color',
-      });
-    }
-
     const commitPublish = () => {
       setDirty(false);
       setUnpublished(false);
@@ -196,83 +225,146 @@ export function ScopeManager() {
   const status = dirty ? 'Draft' : unpublished ? 'Saved' : 'Synced';
 
   return (
-    <main ref={rootRef} className="flex min-h-[calc(100dvh-48px)] w-full min-w-0 max-w-full flex-col overflow-x-hidden sm:min-h-[calc(100dvh-26px)] xl:h-[calc(100dvh-26px)] xl:overflow-hidden">
-      <header className="command-chassis relative z-20 shrink-0 bg-[#080808]">
-        <div data-command-head className="flex min-h-[108px] flex-wrap items-center gap-5 px-4 py-4 sm:px-5 lg:px-7">
-          <div className="mobile-command-copy w-full min-w-0 sm:w-auto">
-            <h1 className="font-mono text-[10px] font-medium uppercase tracking-[0.42em] text-white/48 sm:text-[11px]">SDK Access Surface</h1>
-            <p className="mt-3 max-w-[620px] font-sans text-lg leading-7 text-white/78 sm:text-xl">
-              Configure exactly what your organization<br className="hidden lg:block" /> allows developers to access.
-            </p>
+    <main ref={rootRef} className="scope-manager flex min-h-[calc(100dvh-48px)] w-full min-w-0 max-w-full flex-col overflow-x-hidden sm:min-h-[calc(100dvh-26px)] xl:h-[calc(100dvh-26px)] xl:flex-row xl:overflow-hidden">
+      <section className="scope-primary-pane flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="os-command-chassis command-chassis relative z-20 shrink-0">
+          <div data-command-head className="sdk-os-header">
+            <div className="os-product-heading">
+              <span>Control center</span>
+              <h1>SDK Policy Engine</h1>
+            </div>
+
+            <form
+              className="os-capability-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                executeSearch();
+              }}
+            >
+              <MagnifyingGlass weight="bold" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search capabilities, scopes, entities..."
+                aria-label="Search SDK capabilities"
+                list="sdk-capability-options"
+              />
+              <kbd>Enter</kbd>
+              <datalist id="sdk-capability-options">
+                {CAPABILITIES.map((capability) => <option key={capability.id} value={capability.title} />)}
+                {ALL_SCOPES.map((scope) => <option key={scope.id} value={scope.id} />)}
+                {entities.map((entity) => <option key={entity.id} value={entity.label} />)}
+              </datalist>
+            </form>
+
+            <div className="os-header-context">
+              <label className="os-entity-control">
+                <span>Entity</span>
+                <select value={focused.id} onChange={(event) => setFocusedEntity(event.target.value)}>
+                  {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.label}</option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="os-notification-command"
+                aria-label="Show policy notifications"
+                onClick={() => showNotice(`${history.length} policy events in this session`)}
+              >
+                <Bell weight="bold" />
+                <span>{history.length}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="command-dock flex w-full flex-wrap items-center gap-px sm:ml-auto sm:w-auto sm:justify-end">
-            <span data-status-label className={`mr-1 border px-2 py-1 font-mono text-[8px] uppercase tracking-[0.14em] ${status === 'Draft' ? 'draft-badge border-amber-400/35 bg-amber-400/[0.08] text-amber-200' : status === 'Saved' ? 'border-white/20 bg-white/[0.04] text-white/50' : 'border-[#00ff94]/30 bg-[#00ff94]/[0.06] text-[#00ff94]/70'}`}>{status}</span>
-            <button type="button" onClick={generatePolicy} className="command-button"><FileJson2 className="h-3.5 w-3.5" /> Generate policy</button>
-            <button type="button" onClick={saveChanges} disabled={!dirty} className="command-button"><Save className="h-3.5 w-3.5" /> Save changes</button>
-            <button type="button" onClick={publish} disabled={!unpublished} className={`command-button is-primary ${unpublished ? 'publish-ready' : ''}`}>Publish configuration <ArrowRight className="h-3.5 w-3.5" /></button>
-          </div>
-        </div>
+          <div className="os-policy-toolbar">
+            <div className="os-policy-readouts access-scroll">
+              <Metric label="SDK version" value="v1.4.2" />
+              <Metric label="Saved" value={lastSaved} />
+              <Metric label="Changes" value={dirty ? '01' : '00'} strong={dirty} />
+              <button
+                type="button"
+                className={`os-live-control ${connected ? 'is-live' : ''}`}
+                onClick={() => updateConnection(!connected)}
+              >
+                <Power weight="bold" /> {connected ? 'Live' : 'Paused'}
+              </button>
+            </div>
 
-        <div className="command-status-rail access-scroll flex h-9 items-center gap-4 overflow-x-auto bg-white/[0.018] px-4 font-mono text-[8px] uppercase tracking-[0.15em] text-white/25 sm:px-5 lg:px-7">
-          <Metric label="SDK version" value="v1.4.2" />
-          <Metric label="Active keys" value="3" />
-          <Metric label="Entity" value={focused.label} />
-          <Metric label="Capabilities" value={`${unionCount} / 18`} strong />
-          <Metric label="Last saved" value={lastSaved} />
-          <span className="ml-auto hidden items-center gap-2 whitespace-nowrap text-[#00ff94]/55 lg:flex"><span className="live-dot h-1.5 w-1.5 bg-[#00ff94]" /> Policy engine online</span>
-        </div>
-      </header>
+            <div className="command-actions flex flex-wrap items-center gap-2">
+              <span data-status-label className={`command-status-chip is-${status.toLowerCase()}`}>
+                <span className="command-status-beacon"><Check weight="bold" /></span>
+                <span><small>Policy</small><strong>{status}</strong></span>
+              </span>
 
-      <div className="relative flex w-full min-h-0 min-w-0 flex-1 flex-col xl:flex-row">
-        {lastChanged ? (
-          <div className="permission-signal-track pointer-events-none absolute left-[12%] right-[3%] top-0 z-40 hidden h-px overflow-hidden xl:block">
-            <span data-permission-signal className="absolute -top-px h-[3px] w-24 bg-[#00ff94]" />
+              <div className="command-dock flex flex-wrap items-center">
+                <button type="button" onClick={generatePolicy} className="command-button">
+                  <span className="command-button-icon"><FileCode weight="bold" /></span>
+                  <span className="command-button-copy"><strong>Generate</strong><small>SDK policy</small></span>
+                </button>
+                <button type="button" onClick={saveChanges} disabled={!dirty} className="command-button">
+                  <span className="command-button-icon"><FloppyDisk weight="bold" /></span>
+                  <span className="command-button-copy"><strong>Save</strong><small>Draft</small></span>
+                </button>
+                <button type="button" onClick={publish} disabled={!unpublished} className={`command-button is-primary ${unpublished ? 'publish-ready' : ''}`}>
+                  <span className="command-button-icon"><ArrowRight weight="bold" /></span>
+                  <span className="command-button-copy"><strong>Publish</strong><small>Move live</small></span>
+                </button>
+              </div>
+            </div>
           </div>
-        ) : null}
+        </header>
+
         <div
-          data-control-grid
-          className="control-workspace access-scroll relative min-w-0 flex-1 overflow-y-auto bg-[linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.025)_1px,transparent_1px)] bg-[size:44px_44px]"
+          className="sdk-main-surface control-workspace access-scroll relative min-w-0 flex-1 overflow-y-auto"
         >
-          <div className="relative mx-auto w-full min-w-0 max-w-[1460px] space-y-10 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <CapabilitySurface
-              selectedId={selectedCapability}
-              focusedLabel={focused.label}
-              grants={effectiveGrants}
-              editing={Boolean(lastChanged)}
-              onSelect={selectCapability}
-              onToggle={(scopeId) => toggleScope(scopeId)}
-            />
-            <ScopeBuilder
-              entities={entities}
-              focusedEntity={focused}
-              effectiveCount={effectiveGrants.length}
-              connected={connected}
-              onFocus={setFocusedEntity}
-              onConnectionChange={updateConnection}
-            />
-            <CapabilityMatrix
-              grants={effectiveGrants}
-              selectedScope={selectedScope}
-              onSelectScope={setSelectedScope}
-              onToggle={(scopeId) => toggleScope(scopeId)}
-            />
-            <SimulationLane entityLabel={focused.label} grants={effectiveGrants} />
+          <div className="scope-workspace-content relative w-full min-w-0">
+            <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
+
+            {activeView === 'permissions' ? (
+              <CapabilitySurface
+                selectedId={selectedCapability}
+                focusedLabel={focused.label}
+                grants={focusedGrants}
+                editing={dirty}
+                onSelect={focusCapability}
+                onToggle={toggleScope}
+              />
+            ) : null}
+
+            {activeView === 'test' ? (
+              <SimulationLane entityLabel={focused.label} grants={effectiveGrants} />
+            ) : null}
+
+            {activeView === 'topology' ? (
+              <AccessTopology
+                entity={focused}
+                grants={effectiveGrants}
+                selectedGroup={selectedGroup}
+                onOpenGroup={(groupId) => {
+                  const group = SCOPE_GROUPS.find((item) => item.id === groupId);
+                  setSelectedGroup(groupId);
+                  if (group?.scopes[0]) setSelectedScope(group.scopes[0].id);
+                  setActiveView('permissions');
+                }}
+              />
+            ) : null}
           </div>
         </div>
+      </section>
 
-        <PermissionInspector
-          entity={focused}
-          grants={effectiveGrants}
-          lastChanged={lastChanged}
-          history={history}
-          width={inspectorWidth}
-          onResizeStart={startResize}
-        />
-      </div>
+      <PermissionInspector
+        entity={focused}
+        grants={effectiveGrants}
+        lastChanged={lastChanged}
+        history={history}
+        generationKey={generationKey}
+        width={inspectorWidth}
+        onResizeStart={startResize}
+      />
 
       {notice ? (
-        <div className="fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 border border-[#00ff94]/30 bg-[#0b0b0b] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[#00ff94]/75 sm:bottom-6">
+        <div className="policy-notice fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 rounded-[14px] border px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.14em] sm:bottom-6">
           {notice}
         </div>
       ) : null}
@@ -298,15 +390,15 @@ function Metric({ label, value, strong = false }: { label: string; value: string
 
 function CriticalGrantModal({ scopeId, count, onCancel, onConfirm }: { scopeId: string; count: number; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-[110] grid place-items-center bg-black/80 p-4" onMouseDown={onCancel}>
-      <div className="vault-panel w-full max-w-lg bg-[#0c0c0c] p-5 sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
-        <ShieldAlert className="h-8 w-8 text-red-300" strokeWidth={1.4} />
+    <div className="critical-grant-backdrop fixed inset-0 z-[110] grid place-items-center p-4" onMouseDown={onCancel}>
+      <div className="critical-grant-panel vault-panel w-full max-w-lg p-5 sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
+        <ShieldWarning className="h-8 w-8 text-red-300" weight="duotone" />
         <p className="mt-5 font-mono text-[8px] uppercase tracking-[0.24em] text-red-300/65">Critical permission</p>
         <h2 className="mt-2 break-all font-mono text-xl font-semibold text-white">{scopeId}</h2>
         <p className="mt-3 text-sm leading-6 text-white/45">This permission can mutate production policy or credentials. It will be granted to {count} access {count === 1 ? 'entity' : 'entities'}.</p>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onCancel} className="border border-white/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-white/50 hover:border-white/40 hover:text-white">Cancel</button>
-          <button type="button" onClick={onConfirm} className="flex items-center gap-2 border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-red-200 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" /> Confirm grant</button>
+          <button type="button" onClick={onConfirm} className="flex items-center gap-2 border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-red-200 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" weight="bold" /> Confirm grant</button>
         </div>
       </div>
     </div>

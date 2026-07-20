@@ -47,7 +47,7 @@ export function CapabilityMatrix(props: CapabilityMatrixProps) {
       <div className="capability-matrix-machine">
         <div className="matrix-machine-rail">
           <span>ACTION PLANE / EFFECTIVE GRANTS</span>
-          <span className="text-[#00ff94]/62">SELECTED / {selectedScope}</span>
+          <span className="text-[var(--app-accent)]/62">SELECTED / {selectedScope}</span>
         </div>
 
         <div className="access-scroll overflow-x-auto">
@@ -134,7 +134,7 @@ function MatrixDatum({ label, value, accent = false, wide = false }: { label: st
   return (
     <div className={`matrix-footer-datum ${wide ? 'is-wide' : ''}`}>
       <span>{label}</span>
-      <strong className={accent ? 'text-[#00ff94]/72' : 'text-white/52'}>{value}</strong>
+      <strong className={accent ? 'text-[var(--app-accent)]/72' : 'text-white/52'}>{value}</strong>
     </div>
   );
 }

@@ -5,16 +5,16 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, ArchiveRestore, KeyRound, RadioTower, ScanSearch, ShieldCheck } from 'lucide-react';
+import { Archive, Broadcast, Key, MagnifyingGlass, Pulse, ShieldCheck } from '@phosphor-icons/react';
 
 gsap.registerPlugin(useGSAP);
 
 const NAV_ITEMS = [
-  { href: '/events', label: 'Events', icon: RadioTower },
-  { href: '/dlq', label: 'Dead letter', icon: ArchiveRestore },
-  { href: '/reconciliation', label: 'Reconcile', icon: ScanSearch },
+  { href: '/events', label: 'Events', icon: Broadcast },
+  { href: '/dlq', label: 'Dead letter', icon: Archive },
+  { href: '/reconciliation', label: 'Reconcile', icon: MagnifyingGlass },
   { href: '/sdk/scopes', label: 'Scopes', icon: ShieldCheck },
-  { href: '/sdk/keys', label: 'API keys', icon: KeyRound },
+  { href: '/sdk/keys', label: 'API keys', icon: Key },
 ];
 
 function ConduitMark() {
@@ -25,13 +25,14 @@ function ConduitMark() {
         <path d="M25 8h11v28H25v-5h6V13h-6z" fill="currentColor" />
         <path d="M18 19h8v6h-8z" fill="currentColor" />
       </svg>
-      <span className="absolute bottom-1.5 right-1.5 h-1.5 w-1.5 bg-[#00ff94]" />
+      <span className="absolute bottom-1.5 right-1.5 h-1.5 w-1.5 bg-[var(--app-accent)]" />
     </span>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const splitLayout = pathname.startsWith('/sdk/scopes');
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const notchRef = useRef<HTMLSpanElement>(null);
@@ -71,11 +72,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-[#050505] p-0 text-white sm:p-3">
+    <div className={`light-app telemetry-app ${splitLayout ? 'split-layout-app' : ''} min-h-dvh w-full max-w-full overflow-x-hidden p-0 sm:p-3`}>
       <div ref={shellRef} className="industrial-chassis relative mx-auto flex min-h-dvh w-full max-w-[1920px] overflow-hidden bg-[#080808] sm:min-h-[calc(100dvh-24px)]">
         <span className="frame-border-top pointer-events-none absolute inset-x-0 top-0 z-[90] h-px bg-white/25" aria-hidden="true" />
         <span className="frame-border-right pointer-events-none absolute inset-y-0 right-0 z-[90] w-px bg-white/20" aria-hidden="true" />
-        <span className="policy-publish-sweep pointer-events-none absolute left-0 top-0 z-[95] h-px w-0 bg-[#00ff94]" aria-hidden="true" />
+        <span className="policy-publish-sweep pointer-events-none absolute left-0 top-0 z-[95] h-px w-0 bg-[var(--app-accent)]" aria-hidden="true" />
 
         <aside ref={sidebarRef} className="machine-sidebar fixed inset-x-0 bottom-0 z-50 flex h-16 items-center bg-[#080808] px-2 sm:static sm:h-auto sm:w-16 sm:shrink-0 sm:flex-col sm:px-0">
           <Link href="/sdk/scopes" aria-label="Conduit access surface" className="machine-logo-dock hidden h-16 w-full place-items-center sm:grid">
@@ -94,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-label={item.label}
                   className={`machine-nav-cell group/nav relative flex h-11 w-11 items-center justify-center text-white/30 transition-colors hover:text-white sm:h-12 sm:w-full ${active ? 'is-active text-white' : ''}`}
                 >
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} />
+                  <Icon className="h-5 w-5" weight={active ? 'fill' : 'regular'} />
                   <span className="pointer-events-none absolute bottom-full mb-2 whitespace-nowrap border border-white/10 bg-black px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/70 opacity-0 transition group-hover/nav:opacity-100 sm:bottom-auto sm:left-full sm:ml-3">
                     {item.label}
                   </span>
@@ -111,13 +112,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="w-full min-w-0 flex-1 overflow-x-hidden pb-16 sm:w-auto sm:pb-0">
-          <div className="flex h-12 items-center justify-between border-b border-white/10 px-4 sm:hidden">
+          <div className="mobile-shell-header flex h-12 items-center justify-between border-b px-4 sm:hidden">
             <div className="flex items-center gap-3">
               <ConduitMark />
               <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Conduit</span>
             </div>
             <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-white/35">
-              <Activity className="h-3.5 w-3.5 text-[#00ff94]" /> Operational
+              <Pulse className="h-4 w-4 text-[var(--app-accent)]" weight="bold" /> Operational
             </span>
           </div>
           {children}

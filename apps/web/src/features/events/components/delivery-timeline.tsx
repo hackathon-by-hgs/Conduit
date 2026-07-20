@@ -2,24 +2,34 @@ import type { AttemptDto } from '@conduit/contracts';
 
 export function DeliveryTimeline({ attempts }: { attempts: AttemptDto[] }) {
   if (!attempts.length) {
-    return <p className="text-sm text-[var(--color-muted)]">No attempts yet.</p>;
+    return <p className="telemetry-timeline-empty">No delivery attempts recorded.</p>;
   }
+
   return (
-    <ol className="space-y-2">
-      {attempts.map((a) => (
-        <li key={a.id} className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="font-mono text-xs text-[var(--color-muted)]">#{a.attemptNo}</span>
-          <span className={a.error ? 'text-rose-300' : 'text-emerald-300'}>
-            {a.statusCode ?? '—'} {a.error ? `· ${a.error}` : '· ok'}
-          </span>
-          <span className="text-[var(--color-muted)]">{a.durationMs}ms</span>
-          {a.nextRetryAt ? (
-            <span className="text-amber-300">
-              backoff → {new Date(a.nextRetryAt).toLocaleTimeString()}
-            </span>
-          ) : null}
-        </li>
-      ))}
+    <ol className="telemetry-delivery-timeline">
+      {attempts.map((attempt) => {
+        const failed = Boolean(attempt.error);
+        return (
+          <li key={attempt.id} className={failed ? 'is-failed' : 'is-complete'}>
+            <span className="telemetry-attempt-node">{String(attempt.attemptNo).padStart(2, '0')}</span>
+            <div className="telemetry-attempt-copy">
+              <span>{failed ? 'DELIVERY FAULT' : 'DELIVERY ACKNOWLEDGED'}</span>
+              <strong>{attempt.statusCode ?? 'NO RESPONSE'}</strong>
+              {attempt.error ? <p>{attempt.error}</p> : <p>Endpoint accepted the delivery.</p>}
+            </div>
+            <div className="telemetry-attempt-readout">
+              <span>LATENCY</span>
+              <strong>{attempt.durationMs}<small>ms</small></strong>
+              <time dateTime={attempt.at}>{new Date(attempt.at).toLocaleTimeString()}</time>
+            </div>
+            {attempt.nextRetryAt ? (
+              <div className="telemetry-retry-marker">
+                RETRY {new Date(attempt.nextRetryAt).toLocaleTimeString()}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
     </ol>
   );
 }

@@ -3,7 +3,7 @@
 import { useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
-import { CAPABILITIES, type CapabilityDefinition } from './control-data';
+import { CAPABILITIES } from './control-data';
 
 gsap.registerPlugin(useGSAP);
 
@@ -115,11 +115,11 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
   };
 
   return (
-    <section ref={rootRef} className="control-section">
+    <section ref={rootRef} className="sdk-os-capability-surface control-section">
       <SectionHeading
         index="01"
-        label="Capability assembly"
-        title="One chassis. Every SDK behavior."
+        label="Capability surface"
+        title="Policy workstations"
         detail={`Editing ${focusedLabel}`}
       />
 
@@ -132,7 +132,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
 
         <div className="machine-surface-rail">
           <span>CAPABILITY BUS / REV 1.4.2</span>
-          <span className="ml-auto text-[#00ff94]/65">SIGNAL LOCKED</span>
+          <span className="ml-auto text-[var(--app-accent)]/65">SIGNAL LOCKED</span>
           <span className={`capability-signal-sweep ${editing ? 'is-paused' : ''}`} aria-hidden="true" />
         </div>
 
@@ -156,16 +156,16 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
                     onSelect(capability.id, capability.scopes[0]);
                   }
                 }}
-                className={`machine-module machine-slot-${capability.id} group relative min-w-0 cursor-pointer overflow-hidden ${selected ? 'is-selected' : ''}`}
+                className={`machine-module machine-slot-${capability.id} group relative min-w-0 cursor-pointer overflow-hidden ${selected ? 'is-selected' : 'is-muted'}`}
               >
                 <svg className="capability-card-outline pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  <path className="capability-card-border" d="M.5 .5H99.5V99.5H.5Z" vectorEffect="non-scaling-stroke" />
+                  <path className="capability-card-border" d="M.5 .5H99.5V79.5H90V99.5H.5Z" vectorEffect="non-scaling-stroke" />
                 </svg>
-                <span data-card-ripple className="capability-ripple pointer-events-none absolute z-0 bg-[#00ff94]" aria-hidden="true" />
+                <span data-card-ripple className="capability-ripple pointer-events-none absolute z-0 bg-[var(--app-accent)]" aria-hidden="true" />
                 <div className="card-content relative z-10 flex h-full min-h-0 flex-col p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3 font-mono text-[8px] uppercase tracking-[0.22em]">
                     <span className="text-white/25">{capability.code}</span>
-                    <span data-live-readout className={activeCount ? 'text-[#00ff94]/75' : 'text-white/22'}>
+                    <span data-live-readout className={activeCount ? 'text-[var(--app-accent)]/75' : 'text-white/22'}>
                       {activeCount}/{capability.scopes.length} live
                     </span>
                   </div>
@@ -174,18 +174,17 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
                     <span data-count-value className="capability-count-value">
                       {String(activeCount).padStart(2, '0')}
                     </span>
+                    <small>enabled</small>
                   </div>
 
                   <div className="module-copy relative mt-auto">
-                    <h3 className="capability-title font-display font-bold text-white/92">
-                      <CapabilityTitle capability={capability} />
-                    </h3>
+                    <h3 className="capability-title font-display font-semibold text-white/92">{capability.title}</h3>
                     <p className="module-description mt-2 max-w-[290px] font-body text-xs leading-5 text-white/40">
                       {capability.description}
                     </p>
                   </div>
 
-                  <div className="permission-rail mt-4 flex flex-wrap gap-1.5">
+                  <div className="permission-rail mt-4">
                     {capability.scopes.map((scope) => {
                       const granted = grants.includes(scope);
                       const action = scope.split(':').at(-1) ?? scope;
@@ -197,11 +196,14 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
                           onClick={(event) => {
                             event.stopPropagation();
                             triggerGrantRipple(event, granted);
+                            onSelect(capability.id, scope);
                             onToggle(scope);
                           }}
-                          className={`permission-chip border px-2 py-1 font-mono text-[8px] font-medium uppercase tracking-[0.16em] transition-colors duration-150 ${granted ? 'is-active border-[#00ff94] bg-[#00ff94]/[0.08] text-[#00ff94]' : 'border-white/[0.12] bg-transparent text-white/28 hover:border-white/35 hover:text-white/70'}`}
+                          className={`module-scope-command ${granted ? 'is-active' : ''}`}
                         >
-                          {action}
+                          <span className="module-scope-dot" />
+                          <strong>{action}</strong>
+                          <small>{granted ? 'enabled' : 'blocked'}</small>
                         </button>
                       );
                     })}
@@ -221,7 +223,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
 export function SectionHeading({ index, label, title, detail }: { index: string; label: string; title: string; detail?: string }) {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-white/[0.08] pb-4">
-      <span className="font-mono text-[8px] text-[#00ff94]/50">{index}</span>
+      <span className="font-mono text-[8px] text-[var(--app-accent)]/60">{index}</span>
       <div>
         <p className="font-mono text-[8px] uppercase tracking-[0.28em] text-white/25">{label}</p>
         <h2 className="mt-1 font-display text-xl font-semibold text-white/90 sm:text-2xl">{title}</h2>
@@ -243,17 +245,10 @@ function ChannelLoad({ active, total }: { active: number; total: number }) {
           <span
             key={index}
             data-load-segment={index}
-            className={`h-0.5 flex-1 ${index < active ? 'bg-[#00ff94]' : 'bg-white/10'}`}
+            className={`h-0.5 flex-1 ${index < active ? 'bg-[var(--app-accent)]' : 'bg-white/10'}`}
           />
         ))}
       </div>
     </div>
   );
-}
-
-function CapabilityTitle({ capability }: { capability: CapabilityDefinition }) {
-  if (capability.id === 'events') return <>Event<br />Fabric</>;
-  if (capability.id === 'reconcile') return <>Reconcil-<br />iation</>;
-  if (capability.id === 'storage') return <>Evidence<br />Store</>;
-  return capability.title;
 }

@@ -7,15 +7,14 @@ import { gsap } from 'gsap';
 import {
   ArrowLeft,
   ArrowUpRight,
-  CalendarClock,
+  ArrowsClockwise,
   Check,
   Copy,
   Plus,
   ShieldCheck,
   X,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { ALL_SCOPES, INITIAL_GRANTS } from './access-data';
-import { SectionHeading } from './capability-surface';
 
 gsap.registerPlugin(useGSAP);
 
@@ -99,18 +98,13 @@ export function KeyManager() {
 
   useGSAP(
     () => {
-      const timeline = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      timeline
-        .fromTo(
-          '[data-credential-trace]',
-          { scaleX: 0, transformOrigin: 'left center' },
-          { scaleX: 1, duration: 0.34 },
-        )
-        .from(
-          '[data-key-module]',
-          { clipPath: 'inset(0 0 0 3%)', opacity: 0.86, stagger: 0.07, duration: 0.4 },
-          '-=0.14',
-        );
+      gsap.from('[data-key-module]', {
+        y: 5,
+        opacity: 0.82,
+        stagger: 0.06,
+        duration: 0.34,
+        ease: 'power2.out',
+      });
     },
     { scope: rootRef },
   );
@@ -190,17 +184,17 @@ export function KeyManager() {
       <header className="command-chassis bg-[#080808]">
         <div className="flex min-h-[108px] flex-wrap items-center gap-5 px-4 py-4 sm:px-5 lg:px-7">
           <div className="mobile-command-copy w-full min-w-0 sm:w-auto">
-            <h1 className="font-mono text-[10px] font-medium uppercase tracking-[0.42em] text-white/48 sm:text-[11px]">
-              Credential Vault
+            <h1 className="font-mono text-[10px] font-medium uppercase tracking-[0.32em] text-white/48 sm:text-[11px]">
+              API Keys
             </h1>
             <p className="mt-3 max-w-[620px] font-body text-lg leading-7 text-white/78 sm:text-xl">
-              Issue narrowly scoped credentials.<br className="hidden lg:block" /> Reveal key material once.
+              Create and manage credentials for SDK access.
             </p>
           </div>
 
           <div className="command-dock flex w-full flex-wrap items-center gap-px sm:ml-auto sm:w-auto sm:justify-end">
             <Link href="/sdk/scopes" className="command-button">
-              <ArrowLeft className="h-3.5 w-3.5" /> Scope matrix
+              <ArrowLeft className="h-3.5 w-3.5" /> Permissions
             </Link>
             <button type="button" onClick={() => openConstructor()} className="command-button is-primary">
               <Plus className="h-3.5 w-3.5" /> Generate key
@@ -211,31 +205,35 @@ export function KeyManager() {
         <div className="command-status-rail access-scroll flex h-9 items-center gap-4 overflow-x-auto bg-white/[0.018] px-4 font-mono text-[8px] uppercase tracking-[0.15em] text-white/25 sm:px-5 lg:px-7">
           <VaultRailDatum label="Total keys" value={String(keys.length).padStart(2, '0')} />
           <VaultRailDatum label="Active" value={String(activeCount).padStart(2, '0')} accent />
-          <VaultRailDatum label="Rotation policy" value="90 DAYS" />
-          <VaultRailDatum label="Secret reveal" value="ONE TIME" />
-          <span className="ml-auto hidden items-center gap-2 whitespace-nowrap text-[#00ff94]/55 lg:flex">
-            <span className="live-dot h-1.5 w-1.5 bg-[#00ff94]" /> Vault online
+          <VaultRailDatum label="Rotation" value="90 days" />
+          <span className="ml-auto hidden items-center gap-2 whitespace-nowrap text-[var(--app-accent-soft)] lg:flex">
+            <span className="live-dot h-1.5 w-1.5 bg-[var(--app-accent)]" /> Vault online
           </span>
         </div>
       </header>
 
-      <div className="control-workspace relative min-h-[calc(100dvh-157px)] bg-[linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.025)_1px,transparent_1px)] bg-[size:44px_44px]">
+      <div className="sdk-key-workspace control-workspace relative min-h-[calc(100dvh-157px)]">
         <div className="credential-surface relative mx-auto w-full min-w-0 max-w-[1460px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <SectionHeading
-            index="01"
-            label="Credential register"
-            title="Keys attached to the access surface."
-            detail={`${String(keys.length).padStart(2, '0')} credentials`}
-          />
+          <div className="simple-section-heading">
+            <div>
+              <p>Credentials</p>
+              <h2>API keys</h2>
+            </div>
+            <span>{activeCount} active</span>
+          </div>
 
-          <section className="credential-machine">
-            <div className="credential-machine-rail">
-              <span>CREDENTIAL BUS / REV 1.4.2</span>
-              <span className="text-[#00ff94]/62">MATERIAL SEALED</span>
-              <span data-credential-trace className="credential-trace" aria-hidden="true" />
+          <section className="simple-key-register">
+            <div className="simple-key-table-head" aria-hidden="true">
+              <span>Key</span>
+              <span>Environment</span>
+              <span>Owner</span>
+              <span>Scopes</span>
+              <span>Last used</span>
+              <span>Status</span>
+              <span />
             </div>
 
-            <div className="credential-machine-grid">
+            <div>
               {keys.map((record, index) => (
                 <KeyModule
                   key={record.id}
@@ -244,18 +242,6 @@ export function KeyManager() {
                   onClick={() => setSelectedKey(record)}
                 />
               ))}
-            </div>
-
-            <div className="credential-summary-strip">
-              <CredentialMetric label="Active credentials" value={`${activeCount}/${keys.length}`} />
-              <CredentialMetric
-                label="Granted scopes"
-                value={String(new Set(keys.flatMap((key) => key.scopes)).size).padStart(2, '0')}
-              />
-              <CredentialMetric label="Next rotation" value="JUL 28" />
-              <button type="button" onClick={() => openConstructor()}>
-                Issue another credential <ArrowUpRight className="h-3.5 w-3.5" />
-              </button>
             </div>
           </section>
         </div>
@@ -304,39 +290,21 @@ function KeyModule({ record, index, onClick }: { record: KeyRecord; index: numbe
       type="button"
       data-key-module
       onClick={onClick}
-      className={`credential-module credential-slot-${index + 1} ${active ? 'is-active' : 'is-revoked'}`}
+      className={`simple-key-row ${active ? 'is-active' : 'is-revoked'}`}
     >
-      <div className="credential-module-head">
-        <span>K-{String(index + 1).padStart(2, '0')} / {record.environment}</span>
-        <strong>{record.status}</strong>
-      </div>
-
-      <span className="credential-scope-count" aria-hidden="true">
-        {String(record.scopes.length).padStart(2, '0')}
-      </span>
-
-      <div className="credential-module-copy">
-        <code>{record.id}</code>
-        <h2>{record.label}</h2>
-        <p>{record.team} / {record.owner}</p>
-      </div>
-
-      <div className="credential-module-data">
-        <span><small>Last used</small><strong>{record.lastUsed}</strong></span>
-        <span><small>Rotation</small><strong>{record.rotation}</strong></span>
-      </div>
-
-      <div className="credential-scope-load">
-        <span>Scope load</span>
+      <div className="simple-key-identity">
+        <span>K-{String(index + 1).padStart(2, '0')}</span>
         <div>
-          {Array.from({ length: 8 }, (_, segment) => (
-            <i key={segment} className={segment < Math.min(8, record.scopes.length) ? 'is-active' : ''} />
-          ))}
+          <strong>{record.label}</strong>
+          <small>{record.id} / {record.team}</small>
         </div>
-        <strong>{record.scopes.length}/18</strong>
       </div>
-
-      <ArrowUpRight className="credential-module-arrow h-4 w-4" />
+      <span className="simple-key-environment">{record.environment}</span>
+      <span className="simple-key-owner">{record.owner}</span>
+      <span className="simple-key-scopes">{record.scopes.length}</span>
+      <span className="simple-key-used">{record.lastUsed}</span>
+      <span className={`simple-key-status ${active ? 'is-active' : ''}`}>{record.status}</span>
+      <ArrowUpRight className="h-4 w-4" />
     </button>
   );
 }
@@ -385,7 +353,7 @@ function CredentialInspector({
 
         <div className="credential-drawer-actions">
           <button type="button" onClick={onRotate} className="is-primary">
-            <CalendarClock className="h-4 w-4" /> Rotate credential
+            <ArrowsClockwise className="h-4 w-4" weight="bold" /> Rotate credential
           </button>
           <button
             type="button"
@@ -548,13 +516,9 @@ function VaultRailDatum({ label, value, accent = false }: { label: string; value
   return (
     <span className="flex shrink-0 items-center gap-2 whitespace-nowrap border-r border-white/10 pr-4">
       <span>{label}</span>
-      <strong className={accent ? 'font-medium text-[#00ff94]/75' : 'font-medium text-white/55'}>{value}</strong>
+      <strong className={accent ? 'font-medium text-[var(--app-accent-soft)]' : 'font-medium text-white/55'}>{value}</strong>
     </span>
   );
-}
-
-function CredentialMetric({ label, value }: { label: string; value: string }) {
-  return <div><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function InspectorMetric({ label, value }: { label: string; value: string }) {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowUpRight } from '@phosphor-icons/react/dist/ssr';
 import type { EventDto } from '@conduit/contracts';
 import { Table, TCell, THead, TRow } from '@/components/ui/table';
 import { EventStatusBadge } from './event-status-badge';
@@ -6,24 +7,25 @@ import { EventStatusBadge } from './event-status-badge';
 export function EventsTable({ events }: { events: EventDto[] }) {
   return (
     <Table>
-      <THead columns={['Source', 'Type', 'Status', 'Received']} />
+      <THead columns={['Source', 'Event type', 'State', 'Received', 'Trace']} />
       <tbody>
-        {events.map((e) => (
-          <TRow key={e.id}>
+        {events.map((event) => (
+          <TRow key={event.id}>
             <TCell>
-              <Link
-                href={`/events/${e.id}`}
-                className="text-[var(--color-accent)] hover:underline"
-              >
-                {e.source}
+              <Link href={`/events/${event.id}`} className="telemetry-ledger-link">
+                <span>{event.source}</span>
+                <small>{event.id.slice(0, 8)}</small>
               </Link>
             </TCell>
-            <TCell className="font-mono text-xs">{e.type}</TCell>
-            <TCell>
-              <EventStatusBadge status={e.status} />
+            <TCell className="telemetry-code-cell">{event.type}</TCell>
+            <TCell><EventStatusBadge status={event.status} /></TCell>
+            <TCell className="telemetry-time-cell">
+              <time dateTime={event.receivedAt}>{new Date(event.receivedAt).toLocaleString()}</time>
             </TCell>
-            <TCell className="text-[var(--color-muted)]">
-              {new Date(e.receivedAt).toLocaleString()}
+            <TCell>
+              <Link href={`/events/${event.id}`} className="telemetry-row-action" aria-label={`Inspect ${event.source} event`}>
+                <ArrowUpRight weight="bold" />
+              </Link>
             </TCell>
           </TRow>
         ))}

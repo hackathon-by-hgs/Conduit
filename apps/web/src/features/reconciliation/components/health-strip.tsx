@@ -1,20 +1,28 @@
 'use client';
 
 import type { ReconcileReportDto } from '@conduit/contracts';
-import { Badge } from '@/components/ui/badge';
 import { useStreamStore } from '@/stores/stream.store';
 
 export function HealthStrip({ report }: { report: ReconcileReportDto }) {
-  const stream = useStreamStore((s) => s.status);
+  const stream = useStreamStore((state) => state.status);
+
   return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
-      <Badge tone={report.invariantHolds ? 'success' : 'danger'}>
-        {report.invariantHolds ? 'invariant holds' : 'invariant broken'}
-      </Badge>
-      <span className="text-[var(--color-muted)]">
-        last run {new Date(report.lastRunAt).toLocaleTimeString()}
-      </span>
-      <span className="text-[var(--color-muted)]">· stream: {stream}</span>
+    <div className={`telemetry-health-strip ${report.invariantHolds ? 'is-nominal' : 'is-fault'}`}>
+      <div className="telemetry-health-dial" aria-hidden="true">
+        <span>{report.invariantHolds ? 'OK' : '!'}</span>
+      </div>
+      <div className="telemetry-health-copy">
+        <span>DELIVERY INVARIANT</span>
+        <strong>{report.invariantHolds ? 'Nominal' : 'Integrity fault'}</strong>
+        <p>Last diagnostic run {new Date(report.lastRunAt).toLocaleTimeString()}</p>
+      </div>
+      <div className="telemetry-health-wave" aria-hidden="true">
+        {Array.from({ length: 20 }, (_, index) => <i key={index} />)}
+      </div>
+      <div className="telemetry-health-stream">
+        <span>STREAM</span>
+        <strong>{stream}</strong>
+      </div>
     </div>
   );
 }

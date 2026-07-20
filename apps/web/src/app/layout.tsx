@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Space_Grotesk, Syne } from 'next/font/google';
+import { Inter, JetBrains_Mono, Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
+import './telemetry.css';
 import { Providers } from './providers';
 import { AppShell } from './_components/app-shell';
 
-const syne = Syne({
+const sora = Sora({
   subsets: ['latin'],
-  variable: '--font-syne',
+  variable: '--font-sora',
   weight: ['400', '500', '600', '700', '800'],
 });
 
-const spaceGrotesk = Space_Grotesk({
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
+  variable: '--font-inter',
 });
 
 const jetBrainsMono = JetBrains_Mono({
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${syne.variable} ${spaceGrotesk.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${sora.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
       <body>
         <Providers>
           <AppShell>{children}</AppShell>

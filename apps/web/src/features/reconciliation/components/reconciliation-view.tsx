@@ -3,28 +3,21 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { GAP_TYPE, type GapDto } from '@conduit/contracts';
+import { TelemetryPageHeader } from '@/app/_components/telemetry-page-header';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { reconcileQueryOptions } from '../api/get-reconcile';
 import { HealthStrip } from './health-strip';
 
 function GapItem({ gap }: { gap: GapDto }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--color-border)] py-2 last:border-0">
+    <div className="telemetry-gap-row">
       <div>
-        <p className="text-sm">{gap.detail}</p>
-        <p className="text-xs text-[var(--color-muted)]">
-          {new Date(gap.detectedAt).toLocaleString()}
-        </p>
+        <p>{gap.detail}</p>
+        <time>{new Date(gap.detectedAt).toLocaleString()}</time>
       </div>
       {gap.eventId ? (
-        <Link
-          href={`/events/${gap.eventId}`}
-          className="text-xs text-[var(--color-accent)] hover:underline"
-        >
-          view event →
-        </Link>
+        <Link href={`/events/${gap.eventId}`}>Inspect event</Link>
       ) : null}
     </div>
   );
@@ -33,36 +26,42 @@ function GapItem({ gap }: { gap: GapDto }) {
 export function ReconciliationView() {
   const { data, isLoading, isError, error } = useQuery(reconcileQueryOptions());
 
-  if (isLoading) return <LoadingState />;
-  if (isError) return <ErrorState error={error} />;
-  if (!data) return null;
-
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">Reconciliation</h1>
-        <HealthStrip report={data} />
-      </div>
+    <section className="telemetry-page-stack">
+      <TelemetryPageHeader
+        eyebrow="SYS / INTEGRITY"
+        title="Reconciliation Monitor"
+        description="Validate event-to-delivery invariants and isolate gaps requiring operator attention."
+        status="Integrity scan"
+        metric={data ? { label: 'Open gaps', value: data.gaps.length } : undefined}
+      />
 
-      {data.gaps.length === 0 ? (
-        <EmptyState>No open gaps — every processed event delivered. ✅</EmptyState>
-      ) : (
-        GAP_TYPE.map((type) => {
-          const gaps = data.gaps.filter((g) => g.type === type);
-          if (!gaps.length) return null;
-          return (
-            <Card key={type}>
-              <div className="mb-2 flex items-center gap-2">
-                <Badge tone="warning">{type}</Badge>
-                <span className="text-xs text-[var(--color-muted)]">{gaps.length}</span>
-              </div>
-              {gaps.map((g) => (
-                <GapItem key={g.id} gap={g} />
-              ))}
-            </Card>
-          );
-        })
-      )}
+      {isLoading ? <LoadingState label="Running reconciliation diagnostics" /> : null}
+      {isError ? <ErrorState error={error} /> : null}
+      {data ? (
+        <>
+          <div className="telemetry-inline-instrument"><HealthStrip report={data} /></div>
+          {data.gaps.length === 0 ? (
+            <EmptyState>All processed events satisfy the delivery invariant.</EmptyState>
+          ) : (
+            <div className="telemetry-gap-register">
+              {GAP_TYPE.map((type) => {
+                const gaps = data.gaps.filter((gap) => gap.type === type);
+                if (!gaps.length) return null;
+                return (
+                  <section className="telemetry-gap-group" key={type}>
+                    <header>
+                      <Badge tone="warning">{type}</Badge>
+                      <span>{gaps.length} detected</span>
+                    </header>
+                    {gaps.map((gap) => <GapItem key={gap.id} gap={gap} />)}
+                  </section>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : null}
     </section>
   );
 }
