@@ -20,7 +20,7 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a?logo=nodedotjs&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-24_passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-29_passing-2ea44f)
 ![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
 ![License](https://img.shields.io/badge/license-TBD-lightgrey)
 
@@ -229,18 +229,16 @@ The claim isn't "trust us" — it's measurable. The test: run **N events with in
 
 ## Screenshots
 
-> Placeholder tiles below — swap for real captures in `docs/screenshots/` before submission.
-
 <div align="center">
 
 <table>
   <tr>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Events+stream" width="100%" alt="Events stream" /><br/><sub><b>Events stream</b> — live, filterable, cursor-paginated</sub></td>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Reconciliation" width="100%" alt="Reconciliation dashboard" /><br/><sub><b>Reconciliation</b> — gaps grouped by type, deep-linked</sub></td>
+    <td align="center" width="50%"><img src="docs/screenshots/dlq.png" alt="Dead-letter queue" /><br/><sub><b>DLQ + replay</b> — per-row & bulk, optimistic</sub></td>
+    <td align="center" width="50%"><img src="docs/screenshots/reconciliation.png" alt="Reconciliation dashboard" /><br/><sub><b>Reconciliation</b> — gaps grouped by type, deep-linked</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=DLQ+%2B+replay" width="100%" alt="DLQ and replay" /><br/><sub><b>DLQ + replay</b> — per-row & bulk, optimistic</sub></td>
-    <td align="center"><img src="https://placehold.co/440x260/0b0e14/8b97ad?text=Delivery+timeline" width="100%" alt="Delivery timeline" /><br/><sub><b>Delivery timeline</b> — every attempt + backoff gap</sub></td>
+    <td align="center"><img src="docs/screenshots/events.png" alt="Events stream" /><br/><sub><b>Events stream</b> — live, filterable, cursor-paginated</sub></td>
+    <td align="center"><img src="docs/screenshots/timeline.png" alt="Delivery timeline" /><br/><sub><b>Delivery timeline</b> — every attempt + backoff gap</sub></td>
   </tr>
 </table>
 
@@ -967,6 +965,7 @@ No CI/CD workflows are present in the repository yet (`.github/workflows` does n
 
 ## Implementation Status
 
+<<<<<<< HEAD
 Conduit is functional end to end: the full contract and schema, webhook ingest (idempotent
 persist + transactional outbox), the delivery worker, retry/DLQ/replay, the scheduled
 reconciler, the read APIs, and the frontend logic layer are all implemented and tested.
@@ -994,6 +993,24 @@ for the detailed write-up and reproduction steps):
 - **`webhook` channel** — a valid `Channel` in the contract with no provider yet; falls back to email.
 - **Hardened per-source HMAC schemes** — beyond generic HMAC-SHA256, including **Monnify's
   SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
+=======
+Conduit has the full contract, schema, and every module and route wired end to end. The read paths (events, sends, reconcile, stats), idempotent webhook ingest, the delivery pipeline, and the entire frontend logic layer are implemented and tested.
+
+**Implemented**
+
+- **Webhook ingest** — HMAC signature verification (`common/crypto/signature.ts`), idempotent persist on a unique key, and enqueue.
+- **Delivery pipeline** — `delivery.service` + `delivery.repository` create sends, record attempts, retry, and dead-letter, driven by a **transactional outbox** (`outbox.dispatcher`) for reliable hand-off.
+- **`POST /sends/:id/replay`** — idempotent re-enqueue of a dead-lettered send.
+- **Migrations** — keyset-pagination indexes, per-source idempotency, send dedupe key, and a reconcile-gap unique constraint.
+- **Frontend logic layer** — optimistic replay + bulk replay, URL-synced filters, cursor pagination, SSE-with-polling-fallback, CSV export, and the gap deep-link contract (unit-tested).
+
+**Still stubbed / pending** (clearly-marked `TODO(BEx)`)
+
+- **Reconciler scheduling** — `runReconciler()` is implemented but not yet wired to a periodic schedule; `orphan_send` detection is pending.
+- **Real Resend send** — the provider returns a stubbed success instead of a live send.
+- **`duplicatesRejected` stat** — currently returns `0` (duplicates aren't yet counted in a metric).
+- **Monnify-specific signature** — the generic HMAC verification is in place; Monnify's **SHA-512 `monnify-signature`** scheme and the `eventData.transactionReference` → idempotency-key mapping are the remaining per-source adaptation.
+>>>>>>> 21dc647651d6671d6af992b0b43e216a109f37b7
 
 This section is deliberately explicit so reviewers know exactly what is live versus stubbed.
 
@@ -1008,7 +1025,11 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## Known Limitations
 
+<<<<<<< HEAD
 - A few features remain stubbed (see [Implementation Status](#implementation-status)).
+=======
+- A few pieces are still stubbed — the reconciler schedule, the live Resend send, the `duplicatesRejected` metric, and the Monnify-specific signature scheme (see [Implementation Status](#implementation-status)).
+>>>>>>> 21dc647651d6671d6af992b0b43e216a109f37b7
 - On free-tier hosting the worker runs in-process with the API and services cold-start after inactivity.
 - Per-source in-process ordering (`KeyedSerializer`) assumes a single worker instance; the
   correctness-critical per-source lock in `ensureSend` is a Postgres advisory lock and does
