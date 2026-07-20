@@ -16,12 +16,8 @@ function envelope(path: string, statusCode: number, code: string, message: strin
   return { statusCode, code, message, timestamp: new Date().toISOString(), path };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  // Mock adapter — every view works before the API lands (env-var flip to go live).
-  if (isMockMode()) {
-    return mockResolve<T>(path, init);
-  }
-
+/** Fetch with a timeout; network/timeout and non-2xx are raised as ApiClientError. */
+async function doFetch(path: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -54,7 +50,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       parsed ?? envelope(path, res.status, 'UNKNOWN', res.statusText || 'Request failed'),
     );
   }
+  return res;
+}
 
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Mock adapter — every view works before the API lands (env-var flip to go live).
+  if (isMockMode()) {
+    return mockResolve<T>(path, init);
+  }
+  const res = await doFetch(path, init);
   // Tolerate empty bodies (e.g. a 204) without throwing on JSON parse.
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     return undefined as T;
@@ -66,4 +70,6 @@ export const api = {
   get: <T>(p: string) => request<T>(p),
   post: <T>(p: string, body?: unknown) =>
     request<T>(p, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  /** Fetch a non-JSON (text) body, e.g. a CSV export. Live-only; callers handle mock mode. */
+  getText: async (p: string): Promise<string> => (await doFetch(p)).text(),
 };
