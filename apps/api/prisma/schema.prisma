@@ -19,18 +19,47 @@ model WebhookEvent {
   id             String         @id @default(uuid())
   source         String
   type           String
-  idempotencyKey String         @unique // ← the correctness guarantee
+  idempotencyKey String // unique per source — see @@unique below
   status         String         @default("received")
   payload        Json
   signature      String?
+  /// How many times this event was re-delivered by the provider and rejected as a
+  /// duplicate. Summed into StatsDto.duplicatesRejected — the headline correctness number
+  /// ("processed once, not twice"). Incremented on the dedupe path in WebhooksRepository.
+  duplicateCount Int            @default(0)
+  /// Set when this event's delivery was intentionally collapsed into an earlier, identical
+  /// send (near-duplicate dedupe). Such an event is legitimately `processed` with no send of
+  /// its own, so the reconciler must not report it as a `no_send` gap — this column is the
+  /// auditable record of WHY, rather than a silent exemption.
+  collapsedInto  String?
   receivedAt     DateTime       @default(now())
   processedAt    DateTime?
   sends          Send[]
   gaps           ReconcileGap[]
+  outbox         OutboxJob[]
 
-  @@index([status, receivedAt])
-  @@index([source, receivedAt])
+  @@unique([source, idempotencyKey]) // the correctness guarantee (per-source idempotency)
+  @@index([status, receivedAt, id]) // covers filter + keyset sort (receivedAt, id)
+  @@index([source, receivedAt, id])
   @@map("webhook_events")
+}
+
+/// Transactional outbox: a delivery hand-off written in the SAME transaction as the event,
+/// so persist+enqueue-intent are atomic. A dispatcher drains `pending` rows to BullMQ
+/// (FOR UPDATE SKIP LOCKED). Survives crashes: undispatched rows are re-drained on recovery.
+model OutboxJob {
+  id           String       @id @default(uuid())
+  eventId      String
+  event        WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type         String       @default("deliver")
+  payload      Json
+  status       String       @default("pending") // pending | dispatched
+  attempts     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  dispatchedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("outbox_jobs")
 }
 
 model Send {
@@ -42,14 +71,21 @@ model Send {
   payload        Json
   status         String         @default("pending")
   attempts       Int            @default(0)
+  /// Attempts this send is allowed before dead-lettering. Seeded from DELIVERY_MAX_ATTEMPTS
+  /// at creation and EXTENDED by the same amount on each replay, so a replayed send gets a
+  /// fresh budget instead of dead-lettering on its first attempt. `attempts` is never reset,
+  /// which keeps attemptNo monotonic and the full attempt history intact.
+  attemptBudget  Int            @default(5)
   lastError      String?
+  dedupeKey      String? // hash(to+channel+payload) — collapses near-duplicate sends in a window
   createdAt      DateTime       @default(now())
   deliveredAt    DateTime?
   attemptHistory Attempt[]
   gaps           ReconcileGap[]
 
-  @@index([status, createdAt])
+  @@index([status, createdAt, id]) // covers filter + keyset sort (createdAt, id)
   @@index([causedBy])
+  @@index([dedupeKey, createdAt]) // delivery-dedup window lookup
   @@map("sends")
 }
 
@@ -60,6 +96,10 @@ model Attempt {
   attemptNo   Int
   statusCode  Int?
   error       String?
+  /// Provider-side identifier for this attempt (e.g. the Resend message id). This is the
+  /// receipt that makes a delivery claim verifiable against the provider — the
+  /// "Drizzle-transparent to inspect" half of the product thesis.
+  providerId  String?
   durationMs  Int
   at          DateTime  @default(now())
   nextRetryAt DateTime?
@@ -80,5 +120,8 @@ model ReconcileGap {
   resolvedAt DateTime?
 
   @@index([type, detectedAt])
+  // NOTE: a partial UNIQUE index `reconcile_gaps_open_unique` on (type, eventId, sendId)
+  // WHERE resolvedAt IS NULL (NULLS NOT DISTINCT) is managed by raw migration — Prisma
+  // can't express partial/NULLS-NOT-DISTINCT indexes, so keep it out of migrate dev drift.
   @@map("reconcile_gaps")
 }

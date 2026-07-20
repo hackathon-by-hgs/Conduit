@@ -4,14 +4,12 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import type { Queue } from 'bullmq';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WebhookIngestResponse } from '@conduit/contracts';
+import { verifyPayload } from '../../common/crypto/signature';
 import { AppConfigService } from '../../config/config.service';
-import { QUEUE_NAMES } from '../../queue/queue.constants';
-import { DELIVERY_JOB_NAME, type DeliveryJobData } from '../../queue/job.types';
 import { WebhooksRepository } from './webhooks.repository';
+
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 
 @Injectable()
 export class WebhooksService {
@@ -20,7 +18,6 @@ export class WebhooksService {
   constructor(
     private readonly repo: WebhooksRepository,
     private readonly config: AppConfigService,
-    @InjectQueue(QUEUE_NAMES.delivery) private readonly deliveryQueue: Queue<DeliveryJobData>,
   ) {}
 
   async ingest(
@@ -31,6 +28,9 @@ export class WebhooksService {
     this.verifySignature(source, rawBody, signature);
 
     const parsed = this.parse(rawBody);
+    // Atomic: persists the event AND its delivery outbox row in one transaction; the
+    // outbox dispatcher hands it to BullMQ. No direct enqueue on the request path
+    // (fast-ack, and ingest still succeeds if Redis is down).
     const { event, duplicate } = await this.repo.createIfNew({
       source,
       type: parsed.type,
@@ -39,32 +39,29 @@ export class WebhooksService {
       signature: signature ?? null,
     });
 
-    // Hand off to BE2's delivery worker only for genuinely new events.
-    if (!duplicate) {
-      await this.deliveryQueue.add(
-        DELIVERY_JOB_NAME,
-        { eventId: event.id },
-        { removeOnComplete: true, removeOnFail: false },
-      );
-    }
-
     return { id: event.id, duplicate };
   }
 
   /**
-   * HMAC-SHA256 over the exact raw bytes. Dev fallback: if no per-source secret is
-   * configured, the check is skipped (with a warning).
+   * Strict per-source HMAC-SHA256 (over the exact raw bytes). Rejects unconfigured
+   * sources and bad/missing signatures with 401. Set WEBHOOK_VERIFY=false to bypass
+   * locally (mock/FE dev only).
    *
-   * TODO(BE1 · P0): harden — per-source secret management + source-specific signature
-   * schemes (e.g. Stripe's `t=...,v1=...`).
+   * TODO(BE1): source-specific signature schemes where a provider differs from plain
+   * hex HMAC (e.g. Stripe's `t=...,v1=...`).
    */
   private verifySignature(source: string, rawBody: Buffer, signature?: string): void {
+    if (!this.config.webhookVerifyEnabled) {
+      this.logger.warn(`WEBHOOK_VERIFY is off — skipping signature check for "${source}".`);
+      return;
+    }
+
     const secret = this.config.webhookSecret(source);
     if (!secret) {
-      this.logger.warn(
-        `No WEBHOOK_SECRET_${source.toUpperCase()} configured; skipping signature check.`,
-      );
-      return;
+      throw new UnauthorizedException({
+        code: 'UNKNOWN_SOURCE',
+        message: `No signing secret configured for source "${source}"`,
+      });
     }
     if (!signature) {
       throw new UnauthorizedException({
@@ -72,10 +69,7 @@ export class WebhooksService {
         message: 'Missing signature header',
       });
     }
-    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-    const a = Buffer.from(expected);
-    const b = Buffer.from(signature);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    if (!verifyPayload(secret, rawBody, signature)) {
       throw new UnauthorizedException({
         code: 'INVALID_SIGNATURE',
         message: 'Invalid signature',
@@ -108,6 +102,12 @@ export class WebhooksService {
       throw new BadRequestException({
         code: 'MISSING_IDEMPOTENCY_KEY',
         message: 'Payload must include an idempotencyKey or id',
+      });
+    }
+    if (idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+      throw new BadRequestException({
+        code: 'IDEMPOTENCY_KEY_TOO_LONG',
+        message: `idempotencyKey exceeds ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
       });
     }
     return { type, idempotencyKey, payload: json };

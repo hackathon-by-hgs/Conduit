@@ -1,22 +1,30 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { QUEUE_NAMES } from '../../queue/queue.constants';
+import { jitteredBackoffSettings } from '../../queue/queue.module';
 import type { DeliveryJobData } from '../../queue/job.types';
+import { DeliveryService } from './delivery.service';
 
 /**
- * Consumes enqueued webhook events and delivers them.
+ * Consumes delivery jobs. Ordering + dedup + idempotency live in DeliveryService (per-row
+ * and per-source locks — deadlock-free). Worker lock/stalled settings let BullMQ re-deliver
+ * a job whose worker crashed mid-flight; because processing is idempotent, re-delivery is safe.
  *
- * TODO(BE2 · P0 · Day 1): create Send rows with `causedBy` set, deliver via ResendProvider,
- * record each Attempt, retry with exponential backoff + jitter, and dead-letter after max
- * attempts. On each status change, publish a StreamService event so SSE clients refetch.
+ * `settings` registers the jittered backoff strategy the queue's jobs refer to by name.
  */
-@Processor(QUEUE_NAMES.delivery)
+@Processor(QUEUE_NAMES.delivery, {
+  concurrency: 10,
+  lockDuration: 30_000,
+  stalledInterval: 30_000,
+  maxStalledCount: 2,
+  settings: jitteredBackoffSettings(),
+})
 export class DeliveryProcessor extends WorkerHost {
-  private readonly logger = new Logger(DeliveryProcessor.name);
+  constructor(private readonly delivery: DeliveryService) {
+    super();
+  }
 
-  async process(job: Job<DeliveryJobData>): Promise<void> {
-    this.logger.log(`(stub) received delivery job for event ${job.data.eventId}`);
-    await Promise.resolve();
+  process(job: Job<DeliveryJobData>): Promise<void> {
+    return this.delivery.processDelivery(job.data);
   }
 }

@@ -73,6 +73,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       404: 'NOT_FOUND',
       409: 'CONFLICT',
       422: 'UNPROCESSABLE_ENTITY',
+      429: 'RATE_LIMITED',
       500: 'INTERNAL_ERROR',
       501: 'NOT_IMPLEMENTED',
     };

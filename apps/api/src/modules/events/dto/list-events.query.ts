@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EVENT_STATUS, type EventStatus, type ListEventsQuery } from '@conduit/contracts';
 
@@ -23,10 +23,10 @@ export class ListEventsQueryDto implements ListEventsQuery {
   limit?: number;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   from?: string;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   to?: string;
 }

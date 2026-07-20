@@ -27,7 +27,10 @@ export function DlqView() {
         data.items.length ? (
           <DlqTable sends={data.items} />
         ) : (
-          <EmptyState>DLQ is clear. No delivery recovery is required.</EmptyState>
+          <EmptyState>
+            No dead-lettered sends. Deliveries that exhaust their retries land here,
+            where you can replay them.
+          </EmptyState>
         )
       ) : null}
     </section>
