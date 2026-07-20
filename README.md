@@ -638,7 +638,8 @@ cp .env.example .env
 | `REDIS_URL`               | API   | Redis connection string. Defaults to the Docker service on host port **6380**.                                                                                            |
 | `API_PORT`                | API   | Port the NestJS API listens on (default `3001`).                                                                                                                          |
 | `WEB_ORIGIN`              | API   | Allowed CORS origin (default `http://localhost:3000`).                                                                                                                    |
-| `RESEND_API_KEY`          | API   | Resend API key for email delivery. Optional in dev (a stub key is used).                                                                                                  |
+| `RESEND_API_KEY`          | API   | Resend API key. A real `re_...` key ⇒ **LIVE** mode (real email). Absent/placeholder ⇒ **SIMULATED** mode — retry/DLQ/replay behave identically but nothing is sent.      |
+| `DELIVERY_BACKOFF_CAP_MS` | API   | Ceiling for the exponential retry backoff (default `60000`).                                                                                                              |
 | `EMAIL_FROM`              | API   | From-address for outbound email.                                                                                                                                          |
 | `WEBHOOK_SECRET_<SOURCE>` | API   | Per-source HMAC secret, e.g. `WEBHOOK_SECRET_MONNIFY` (your Monnify client secret). If unset for a source, signature verification is **skipped in dev** (with a warning). |
 | `NEXT_PUBLIC_API_URL`     | Web   | Base URL of the API (exposed to the browser).                                                                                                                             |
@@ -701,7 +702,8 @@ Base URL: `http://localhost:3001`. All list endpoints are **cursor-paginated** a
 | `GET`  | `/events/:id`       | Event detail with nested sends and attempts.                               |
 | `GET`  | `/sends`            | List sends (filter by `status`; DLQ = `dead_lettered`).                    |
 | `POST` | `/sends/:id/replay` | Re-enqueue a dead-lettered send (idempotent).                              |
-| `GET`  | `/reconcile`        | Reconciliation report (`Gap[]` + summary; optional `from`/`to`).           |
+| `GET`  | `/reconcile`        | Reconciliation report (`Gap[]` + summary, `lastRunAt`, `invariantHolds`; optional `from`/`to`/`status=all\|open\|resolved`). |
+| `GET`  | `/reconcile/export.csv` | The same report as a downloadable CSV, honouring the same filters. |
 | `GET`  | `/stream`           | Server-Sent Events: pushes event / send / gap change notifications.        |
 | `GET`  | `/stats`            | Dashboard counts.                                                          |
 | `GET`  | `/health`           | Liveness probe.                                                            |
@@ -965,30 +967,52 @@ No CI/CD workflows are present in the repository yet (`.github/workflows` does n
 
 ## Implementation Status
 
-Conduit is a working scaffold with the full contract, schema, and every module and route wired end to end. Read paths (events, sends, reconcile, stats), webhook ingest (idempotent persist + enqueue), and the entire frontend logic layer are implemented and tested. A few correctness-critical backend pieces are intentionally left as clearly-marked `TODO(BEx)` stubs for their owners and are **not yet functional**:
+Conduit is functional end to end: the full contract and schema, webhook ingest (idempotent
+persist + transactional outbox), the delivery worker, retry/DLQ/replay, the scheduled
+reconciler, the read APIs, and the frontend logic layer are all implemented and tested.
 
-- **Delivery worker** (`delivery.processor.ts`) — real send, `Send`/`Attempt` creation, backoff + jitter, and dead-lettering (currently a logging stub).
-- **`POST /sends/:id/replay`** — returns `501 Not Implemented` pending the idempotent re-enqueue.
-- **Resend provider** — returns a stubbed `202` instead of performing a live send.
-- **Reconciler scheduling** — `runReconciler()` is implemented but not yet wired to a periodic schedule; `orphan_send` detection is pending.
-- **`duplicatesRejected` stat** — currently returns `0` (duplicates aren't yet counted in a metric).
-- **Hardened per-source HMAC schemes** — beyond the generic HMAC-SHA256 verification, including **Monnify's SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
+**Live and verified** (see [Backend 2 — Delivery & Reconciliation](docs/backend-2-delivery-and-reconciliation.md)
+for the detailed write-up and reproduction steps):
+
+- **Delivery worker** — creates `Send`/`Attempt` rows, exponential backoff with deterministic
+  jitter, attempt-budget-driven dead-lettering.
+- **Resend provider** — real API call in LIVE mode (message id captured into `Attempt.providerId`),
+  with a SIMULATED mode when no key is configured. Non-retryable faults dead-letter immediately.
+- **`POST /sends/:id/replay`** — idempotent, double-click safe, and grants a fresh attempt budget.
+- **Reconciler** — runs on `RECONCILE_INTERVAL_MS`, detects all four gap types including
+  `orphan_send`, and **auto-resolves** gaps once the underlying violation is repaired.
+- **`duplicatesRejected` stat** — a real count of re-deliveries rejected by the idempotency
+  constraint.
+
+- **SMS channel** — routed through `ChannelRouter` and exercising the full retry/DLQ/replay
+  path, but the provider itself is a **log-only stub** (P2): it validates E.164 and logs,
+  and never sends a real SMS.
+- **CSV export** — `GET /reconcile/export.csv`, honouring the same filters as the JSON report.
+
+**Still stubbed / not built:**
+
+- **`webhook` channel** — a valid `Channel` in the contract with no provider yet; falls back to email.
+- **Hardened per-source HMAC schemes** — beyond generic HMAC-SHA256, including **Monnify's
+  SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
 
 This section is deliberately explicit so reviewers know exactly what is live versus stubbed.
 
 ## Future Improvements
 
-- Complete the delivery worker, replay, and scheduled reconciler (the stubs above).
-- SMS channel delivery (currently a log-only stub in scope).
-- CSV export and time-window gap filtering wired into the reconciliation UI (logic is implemented).
+- A real SMS provider behind the existing stub, and the `webhook` outbound channel.
+- Wire the CSV export into the reconciliation UI (the endpoint exists).
+- Window the reconciler's scan by `receivedAt` instead of scanning the full table each pass.
 - OpenAPI/Swagger generation from the shared contract.
 - CI pipeline and end-to-end tests.
 - Multi-tenant support, template design studio, and analytics (explicitly out of the current scope).
 
 ## Known Limitations
 
-- Several backend features are stubbed (see [Implementation Status](#implementation-status)).
+- A few features remain stubbed (see [Implementation Status](#implementation-status)).
 - On free-tier hosting the worker runs in-process with the API and services cold-start after inactivity.
+- Per-source in-process ordering (`KeyedSerializer`) assumes a single worker instance; the
+  correctness-critical per-source lock in `ensureSend` is a Postgres advisory lock and does
+  hold across instances.
 - No authenticated user layer — Conduit is a machine-to-machine service.
 - Signature verification is skipped for sources without a configured secret in development.
 

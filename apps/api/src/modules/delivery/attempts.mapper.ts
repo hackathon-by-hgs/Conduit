@@ -8,6 +8,7 @@ export const AttemptsMapper = {
       sendId: row.sendId,
       attemptNo: row.attemptNo,
       statusCode: row.statusCode ?? null,
+      providerId: row.providerId ?? null,
       error: row.error ?? null,
       durationMs: row.durationMs,
       at: row.at.toISOString(),

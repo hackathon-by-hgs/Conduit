@@ -23,6 +23,15 @@ model WebhookEvent {
   status         String         @default("received")
   payload        Json
   signature      String?
+  /// How many times this event was re-delivered by the provider and rejected as a
+  /// duplicate. Summed into StatsDto.duplicatesRejected — the headline correctness number
+  /// ("processed once, not twice"). Incremented on the dedupe path in WebhooksRepository.
+  duplicateCount Int            @default(0)
+  /// Set when this event's delivery was intentionally collapsed into an earlier, identical
+  /// send (near-duplicate dedupe). Such an event is legitimately `processed` with no send of
+  /// its own, so the reconciler must not report it as a `no_send` gap — this column is the
+  /// auditable record of WHY, rather than a silent exemption.
+  collapsedInto  String?
   receivedAt     DateTime       @default(now())
   processedAt    DateTime?
   sends          Send[]
@@ -62,6 +71,11 @@ model Send {
   payload        Json
   status         String         @default("pending")
   attempts       Int            @default(0)
+  /// Attempts this send is allowed before dead-lettering. Seeded from DELIVERY_MAX_ATTEMPTS
+  /// at creation and EXTENDED by the same amount on each replay, so a replayed send gets a
+  /// fresh budget instead of dead-lettering on its first attempt. `attempts` is never reset,
+  /// which keeps attemptNo monotonic and the full attempt history intact.
+  attemptBudget  Int            @default(5)
   lastError      String?
   dedupeKey      String? // hash(to+channel+payload) — collapses near-duplicate sends in a window
   createdAt      DateTime       @default(now())
@@ -82,6 +96,10 @@ model Attempt {
   attemptNo   Int
   statusCode  Int?
   error       String?
+  /// Provider-side identifier for this attempt (e.g. the Resend message id). This is the
+  /// receipt that makes a delivery claim verifiable against the provider — the
+  /// "Drizzle-transparent to inspect" half of the product thesis.
+  providerId  String?
   durationMs  Int
   at          DateTime  @default(now())
   nextRetryAt DateTime?

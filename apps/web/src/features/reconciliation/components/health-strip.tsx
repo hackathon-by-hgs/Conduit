@@ -12,7 +12,10 @@ export function HealthStrip({ report }: { report: ReconcileReportDto }) {
         {report.invariantHolds ? 'invariant holds' : 'invariant broken'}
       </Badge>
       <span className="text-[var(--color-muted)]">
-        last run {new Date(report.lastRunAt).toLocaleTimeString()}
+        {/* null until the reconciler completes its first pass since boot. */}
+        {report.lastRunAt
+          ? `last run ${new Date(report.lastRunAt).toLocaleTimeString()}`
+          : 'not yet run'}
       </span>
       <span className="text-[var(--color-muted)]">· stream: {stream}</span>
     </div>

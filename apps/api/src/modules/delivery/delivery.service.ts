@@ -8,10 +8,8 @@ import { QUEUE_NAMES } from '../../queue/queue.constants';
 import { DELIVERY_JOB_NAME, type DeliveryJobData } from '../../queue/job.types';
 import { StreamService } from '../stream/stream.service';
 import { DeliveryRepository } from './delivery.repository';
-import { ResendProvider } from './email/resend.provider';
+import { ChannelRouter } from './providers/channel.router';
 import { SendsMapper } from './sends.mapper';
-
-const CHANNEL = 'email';
 
 @Injectable()
 export class DeliveryService {
@@ -19,7 +17,7 @@ export class DeliveryService {
 
   constructor(
     private readonly repo: DeliveryRepository,
-    private readonly provider: ResendProvider,
+    private readonly router: ChannelRouter,
     private readonly stream: StreamService,
     private readonly config: AppConfigService,
     @InjectQueue(QUEUE_NAMES.delivery) private readonly queue: Queue<DeliveryJobData>,
@@ -38,17 +36,20 @@ export class DeliveryService {
     }
 
     const payload = (event.payload ?? {}) as Record<string, unknown>;
-    const to = typeof payload.to === 'string' ? payload.to : `${event.source}@webhooks.conduit.dev`;
-    const dedupeKey = dedupeKeyFor(to, CHANNEL, payload);
+    // Channel and recipient are declared by the payload; everything below is channel-agnostic.
+    const channel = this.router.resolveChannel(payload);
+    const to = this.router.resolveRecipient(payload, channel, event.source);
+    const dedupeKey = dedupeKeyFor(to, channel, payload);
 
     const ensured = await this.repo.ensureSend({
       eventId: event.id,
       source: event.source,
       to,
-      channel: CHANNEL,
+      channel,
       payload,
       dedupeKey,
       dedupeWindowMs: this.config.deliveryDedupWindowMs,
+      maxAttempts: this.config.deliveryMaxAttempts,
     });
 
     // Collapsed into an earlier send, or already in a terminal state — nothing to deliver.
@@ -58,30 +59,51 @@ export class DeliveryService {
     }
 
     const started = Date.now();
-    const result = await this.provider.send({ to, subject: event.type, html: `<p>${event.type}</p>` });
+    const result = await this.router.send(channel, { to, type: event.type, payload });
     const durationMs = Date.now() - started;
 
-    const { outcome, causedBy } = await this.repo.recordAttempt({
+    const { outcome, causedBy, attemptNo } = await this.repo.recordAttempt({
       sendId: ensured.sendId,
       ok: result.ok,
       statusCode: result.statusCode,
+      providerId: result.providerId,
       error: result.error,
       durationMs,
-      maxAttempts: this.config.deliveryMaxAttempts,
+      retryable: result.retryable,
       backoffMs: this.config.deliveryBackoffMs,
+      backoffCapMs: this.config.deliveryBackoffCapMs,
     });
 
     this.stream.publish({ kind: 'send.updated', sendId: ensured.sendId, causedBy });
 
+    if (outcome === 'dead_lettered') {
+      this.logger.warn(
+        `Send ${ensured.sendId} dead-lettered after attempt ${attemptNo}: ${result.error ?? 'unknown'}`,
+      );
+      // Resolved (terminally) as far as the queue is concerned — the DLQ owns it now.
+      // Returning instead of throwing keeps the job out of BullMQ's failed set, so the
+      // DB remains the single source of truth for what is dead-lettered.
+      return;
+    }
+
     if (outcome === 'retry') {
-      // Throw → BullMQ re-delivers with backoff; the same send is reused next run.
-      throw new Error(`Delivery failed for send ${ensured.sendId}; will retry.`);
+      // Throw → BullMQ re-delivers after the jittered backoff; the same send is reused.
+      throw new Error(
+        `Delivery attempt ${attemptNo} failed for send ${ensured.sendId}: ${result.error ?? 'unknown'}`,
+      );
     }
   }
 
-  /** Idempotent replay of a dead-lettered send (double-click safe). */
+  /**
+   * Idempotent replay of a dead-lettered send (double-click safe). The send's attempt
+   * budget is extended by a full `DELIVERY_MAX_ATTEMPTS`, so the replay gets a real retry
+   * budget rather than dead-lettering again on its first failure.
+   */
   async replay(sendId: string): Promise<SendDto> {
-    const { replayed, send } = await this.repo.claimForReplay(sendId);
+    const { replayed, send } = await this.repo.claimForReplay(
+      sendId,
+      this.config.deliveryMaxAttempts,
+    );
     if (replayed) {
       const event = await this.repo.getEvent(send.causedBy);
       await this.queue.add(
@@ -91,9 +113,12 @@ export class DeliveryService {
           source: event?.source ?? '',
           receivedAt: (event?.receivedAt ?? send.createdAt).toISOString(),
         },
-        // Deterministic-ish jobId per replay attempt; the send row itself is the dedup guard.
+        // Unique per replay round (attempts never reset), so a genuine second replay is
+        // not swallowed by BullMQ's jobId dedup while a double-click still is — the send
+        // row's FOR UPDATE claim is the real guard.
         { jobId: `replay:${send.id}:${send.attempts}`, removeOnComplete: true, removeOnFail: false },
       );
+      this.stream.publish({ kind: 'send.updated', sendId: send.id, causedBy: send.causedBy });
     }
     return SendsMapper.toDto(send);
   }

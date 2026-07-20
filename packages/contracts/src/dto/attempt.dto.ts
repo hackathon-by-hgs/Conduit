@@ -5,6 +5,8 @@ export interface AttemptDto {
   attemptNo: number;
   statusCode: number | null;
   error: string | null;
+  /** Provider-side receipt (e.g. Resend message id) — present on a successful attempt. */
+  providerId: string | null;
   durationMs: number;
   at: string;
   nextRetryAt: string | null;

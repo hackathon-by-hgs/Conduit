@@ -58,6 +58,10 @@ export class AppConfigService {
     return this.config.get('DELIVERY_BACKOFF_MS', { infer: true });
   }
 
+  get deliveryBackoffCapMs() {
+    return this.config.get('DELIVERY_BACKOFF_CAP_MS', { infer: true });
+  }
+
   get deliveryDedupWindowMs() {
     return this.config.get('DELIVERY_DEDUP_WINDOW_MS', { infer: true });
   }
@@ -68,6 +72,14 @@ export class AppConfigService {
 
   get reconcileIntervalMs() {
     return this.config.get('RECONCILE_INTERVAL_MS', { infer: true });
+  }
+
+  get reconcileNoSendGraceMs() {
+    return this.config.get('RECONCILE_NO_SEND_GRACE_MS', { infer: true });
+  }
+
+  get reconcileStuckAfterMs() {
+    return this.config.get('RECONCILE_STUCK_AFTER_MS', { infer: true });
   }
 
   /** Per-source HMAC secret, e.g. WEBHOOK_SECRET_STRIPE for source "stripe". */

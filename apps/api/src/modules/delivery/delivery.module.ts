@@ -7,6 +7,8 @@ import { DeliveryService } from './delivery.service';
 import { DeliveryRepository } from './delivery.repository';
 import { DeliveryProcessor } from './delivery.processor';
 import { ResendProvider } from './email/resend.provider';
+import { SmsProvider } from './sms/sms.provider';
+import { ChannelRouter } from './providers/channel.router';
 import { StreamModule } from '../stream/stream.module';
 import { QUEUE_NAMES } from '../../queue/queue.constants';
 
@@ -20,6 +22,8 @@ import { QUEUE_NAMES } from '../../queue/queue.constants';
     DeliveryRepository,
     DeliveryProcessor,
     ResendProvider,
+    SmsProvider,
+    ChannelRouter,
   ],
   exports: [SendsService, SendsRepository],
 })

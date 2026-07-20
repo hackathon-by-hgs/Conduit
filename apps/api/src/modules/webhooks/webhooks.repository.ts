@@ -54,8 +54,18 @@ export class WebhooksRepository {
       return { event, duplicate: false };
     } catch (error) {
       if (isUniqueViolation(error, 'idempotencyKey')) {
-        const existing = await this.prisma.webhookEvent.findFirstOrThrow({
-          where: { source: data.source, idempotencyKey: data.idempotencyKey },
+        // Count the rejected re-delivery on the original event. This is what makes
+        // StatsDto.duplicatesRejected a real measurement ("processed once, not twice")
+        // rather than an assertion — the atomic increment is safe under concurrent
+        // re-deliveries of the same key. (BE2 owns /stats; this is its data source.)
+        const existing = await this.prisma.webhookEvent.update({
+          where: {
+            source_idempotencyKey: {
+              source: data.source,
+              idempotencyKey: data.idempotencyKey,
+            },
+          },
+          data: { duplicateCount: { increment: 1 } },
         });
         return { event: existing, duplicate: true };
       }

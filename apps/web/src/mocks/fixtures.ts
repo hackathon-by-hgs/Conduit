@@ -18,6 +18,7 @@ const attempts = (sendId: string): AttemptDto[] => [
     sendId,
     attemptNo: 1,
     statusCode: 500,
+    providerId: null,
     error: 'provider_unavailable',
     durationMs: 812,
     at: '2026-07-19T11:59:00.000Z',
@@ -28,6 +29,8 @@ const attempts = (sendId: string): AttemptDto[] => [
     sendId,
     attemptNo: 2,
     statusCode: 202,
+    // Provider receipt for the successful attempt — proof the delivery really happened.
+    providerId: 're_2Kd9xQmT4bLn',
     error: null,
     durationMs: 143,
     at: '2026-07-19T11:59:03.000Z',
@@ -114,7 +117,15 @@ const gaps: GapDto[] = [
 
 export const mockReport: ReconcileReportDto = {
   gaps,
-  summary: { no_send: 1, orphan_send: 0, duplicate_send: 0, stuck: 0, total: 1 },
+  summary: {
+    no_send: 1,
+    orphan_send: 0,
+    duplicate_send: 0,
+    stuck: 0,
+    total: 1,
+    open: 1,
+    resolved: 0,
+  },
   lastRunAt: '2026-07-19T12:00:30.000Z',
   invariantHolds: false,
 };
