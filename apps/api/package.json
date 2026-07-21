@@ -6,7 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
-    "start:prod": "node /api/dist/main.js",
+    "start:prod": "prisma migrate deploy && node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
