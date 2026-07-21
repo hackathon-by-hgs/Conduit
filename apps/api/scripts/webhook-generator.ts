@@ -10,12 +10,16 @@
  * Flags: --count N  --dup-rate 0..1  --sources stripe,github,slack  --rps N
  *        --stream    --api http://localhost:3001
  *
+ * `--sources monnify` emits real-shaped Monnify transaction notifications, signed the way
+ * Monnify signs them (SHA-512 in `monnify-signature`) — so the Monnify ingest path is
+ * exercised end to end without waiting on the sandbox.
+ *
  * DoD (burst mode): asserts the server returned duplicate:false for exactly the uniques it
  * sent and duplicate:true for exactly the duplicates → "exactly the unique count is stored,
  * duplicates return the original." Prints PASS/FAIL.
  */
-import { randomUUID } from 'node:crypto';
-import { API_ROUTES, SIGNATURE_HEADER } from '@conduit/contracts';
+import { createHmac, randomUUID } from 'node:crypto';
+import { API_ROUTES, MONNIFY_SIGNATURE_HEADER, SIGNATURE_HEADER } from '@conduit/contracts';
 import { signPayload } from '../src/common/crypto/signature';
 
 interface Args {
@@ -69,6 +73,48 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)] as T;
 }
 
+/**
+ * How each source signs. Mirrors the server-side schemes in
+ * `src/modules/webhooks/schemes` — Monnify uses SHA-512 in its own header, everyone else
+ * uses Conduit's SHA-256 `x-signature`.
+ */
+function signatureHeaderFor(source: string, secret: string, body: string): Record<string, string> {
+  if (source.toLowerCase() === 'monnify') {
+    return { [MONNIFY_SIGNATURE_HEADER]: createHmac('sha512', secret).update(body).digest('hex') };
+  }
+  return { [SIGNATURE_HEADER]: signPayload(secret, body) };
+}
+
+/** A Monnify transaction notification, in Monnify's own envelope. */
+function buildMonnifyBody(): Sent {
+  const eventType = pick([
+    'SUCCESSFUL_TRANSACTION',
+    'SUCCESSFUL_TRANSACTION',
+    'SUCCESSFUL_TRANSACTION',
+    'SETTLEMENT',
+    'REFUND_COMPLETED',
+  ]);
+  const amount = (500 + Math.floor(Math.random() * 500_000) / 100).toFixed(2);
+  const ref = `MNFY|${new Date().toISOString().slice(0, 10).replace(/-/g, '')}|${randomUUID().slice(0, 8)}`;
+
+  // The unique reference lives under a different key per event type — the same mapping the
+  // server-side monnify scheme reads back out.
+  const eventData: Record<string, unknown> = {
+    paymentReference: `order_${randomUUID().slice(0, 8)}`,
+    amountPaid: amount,
+    totalPayable: amount,
+    paidOn: new Date().toISOString(),
+    paymentStatus: 'PAID',
+    currency: 'NGN',
+    customer: { email: 'ada@example.com', name: 'Ada Lovelace' },
+  };
+  if (eventType === 'SETTLEMENT') eventData.settlementReference = ref.replace('MNFY', 'STL');
+  else if (eventType === 'REFUND_COMPLETED') eventData.refundReference = ref.replace('MNFY', 'RFD');
+  else eventData.transactionReference = ref;
+
+  return { source: 'monnify', body: JSON.stringify({ eventType, eventData }) };
+}
+
 function secretFor(source: string): string {
   const secret = process.env[`WEBHOOK_SECRET_${source.toUpperCase()}`];
   if (!secret) {
@@ -85,6 +131,8 @@ interface Sent {
 }
 
 function buildBody(source: string): Sent {
+  if (source.toLowerCase() === 'monnify') return buildMonnifyBody();
+
   const shape = (PAYLOADS[source] ?? PAYLOADS.stripe)!();
   const payload = {
     idempotencyKey: `${source}_${randomUUID()}`,
@@ -99,14 +147,14 @@ async function fire(
   api: string,
   s: Sent,
 ): Promise<{ ok: boolean; status: number; duplicate?: boolean }> {
-  const signature = signPayload(secretFor(s.source), s.body);
+  const signature = signatureHeaderFor(s.source, secretFor(s.source), s.body);
   const url = `${api}${API_ROUTES.webhooks.ingest(s.source)}`;
 
   // Retry on 429 (rate limit) so counts stay exact — the retry re-sends the same body/key.
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', [SIGNATURE_HEADER]: signature },
+      headers: { 'content-type': 'application/json', ...signature },
       body: s.body,
     });
     if (res.status === 429 && attempt < 50) {

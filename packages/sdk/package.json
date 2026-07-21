@@ -1,0 +1,37 @@
+{
+  "name": "@conduit/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conduit SDK — receive, deliver and reconcile every event, with proof.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "example": "dotenv -e ../../.env -- tsx examples/quickstart.ts"
+  },
+  "dependencies": {
+    "@conduit/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@conduit/eslint-config": "workspace:*",
+    "@conduit/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "dotenv-cli": "^8.0.0",
+    "eslint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

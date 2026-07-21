@@ -1,5 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../../common/auth/public.decorator';
 
+/** Exempt from the API key: liveness probes must work without credentials. */
+@Public()
 @Controller('health')
 export class HealthController {
   @Get()

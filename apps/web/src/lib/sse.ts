@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { API_ROUTES, type StreamEvent } from '@conduit/contracts';
+import { API_PROXY_BASE } from './api-client';
 import { queryKeys } from './query-keys';
 import { isMockMode } from '@/mocks';
 import { useStreamStore } from '@/stores/stream.store';
@@ -82,8 +83,10 @@ export function useConduitStream(): void {
       poll = setInterval(() => invalidateLive(qc), STREAM_POLL_MS);
     };
 
-    const url = `${process.env.NEXT_PUBLIC_API_URL ?? ''}${API_ROUTES.stream.sse}`;
-    const es = new EventSource(url);
+    // Through the same-origin proxy, which attaches the API key server-side. EventSource
+    // cannot set request headers at all, so going direct would be impossible once the
+    // service requires a key.
+    const es = new EventSource(`${API_PROXY_BASE}${API_ROUTES.stream.sse}`);
 
     es.onopen = () => {
       stopPolling();

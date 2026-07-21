@@ -1,12 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import type { WebhookIngestResponse } from '@conduit/contracts';
-import { verifyPayload } from '../../common/crypto/signature';
 import { AppConfigService } from '../../config/config.service';
+import { schemeFor, type SourceScheme } from './schemes';
 import { WebhooksRepository } from './webhooks.repository';
 
 const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
@@ -20,14 +15,21 @@ export class WebhooksService {
     private readonly config: AppConfigService,
   ) {}
 
+  /**
+   * @param headers the request headers — the source's scheme decides which one carries its
+   *   signature (`x-signature` generically, `monnify-signature` for Monnify).
+   */
   async ingest(
     source: string,
     rawBody: Buffer,
-    signature?: string,
+    headers: Record<string, string | string[] | undefined>,
   ): Promise<WebhookIngestResponse> {
-    this.verifySignature(source, rawBody, signature);
+    const scheme = schemeFor(source);
+    const signature = headerValue(headers, scheme.signatureHeader);
 
-    const parsed = this.parse(rawBody);
+    this.verifySignature(source, scheme, rawBody, signature);
+
+    const parsed = this.parse(scheme, rawBody);
     // Atomic: persists the event AND its delivery outbox row in one transaction; the
     // outbox dispatcher hands it to BullMQ. No direct enqueue on the request path
     // (fast-ack, and ingest still succeeds if Redis is down).
@@ -43,14 +45,16 @@ export class WebhooksService {
   }
 
   /**
-   * Strict per-source HMAC-SHA256 (over the exact raw bytes). Rejects unconfigured
-   * sources and bad/missing signatures with 401. Set WEBHOOK_VERIFY=false to bypass
-   * locally (mock/FE dev only).
-   *
-   * TODO(BE1): source-specific signature schemes where a provider differs from plain
-   * hex HMAC (e.g. Stripe's `t=...,v1=...`).
+   * Strict per-source HMAC over the exact raw bytes, using the source's own scheme. Rejects
+   * unconfigured sources and bad/missing signatures with 401. Set WEBHOOK_VERIFY=false to
+   * bypass locally (mock/FE dev only).
    */
-  private verifySignature(source: string, rawBody: Buffer, signature?: string): void {
+  private verifySignature(
+    source: string,
+    scheme: SourceScheme,
+    rawBody: Buffer,
+    signature?: string,
+  ): void {
     if (!this.config.webhookVerifyEnabled) {
       this.logger.warn(`WEBHOOK_VERIFY is off — skipping signature check for "${source}".`);
       return;
@@ -66,10 +70,10 @@ export class WebhooksService {
     if (!signature) {
       throw new UnauthorizedException({
         code: 'INVALID_SIGNATURE',
-        message: 'Missing signature header',
+        message: `Missing ${scheme.signatureHeader} header`,
       });
     }
-    if (!verifyPayload(secret, rawBody, signature)) {
+    if (!scheme.verify(secret, rawBody, signature)) {
       throw new UnauthorizedException({
         code: 'INVALID_SIGNATURE',
         message: 'Invalid signature',
@@ -77,7 +81,10 @@ export class WebhooksService {
     }
   }
 
-  private parse(rawBody: Buffer): {
+  private parse(
+    scheme: SourceScheme,
+    rawBody: Buffer,
+  ): {
     type: string;
     idempotencyKey: string;
     payload: Record<string, unknown>;
@@ -91,17 +98,11 @@ export class WebhooksService {
         message: 'Body is not valid JSON',
       });
     }
-    const type = typeof json.type === 'string' ? json.type : 'unknown';
-    const idempotencyKey =
-      typeof json.idempotencyKey === 'string'
-        ? json.idempotencyKey
-        : typeof json.id === 'string'
-          ? json.id
-          : undefined;
+    const { type, idempotencyKey } = scheme.parse(json);
     if (!idempotencyKey) {
       throw new BadRequestException({
         code: 'MISSING_IDEMPOTENCY_KEY',
-        message: 'Payload must include an idempotencyKey or id',
+        message: 'Payload has no field usable as an idempotency key',
       });
     }
     if (idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
@@ -110,6 +111,17 @@ export class WebhooksService {
         message: `idempotencyKey exceeds ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
       });
     }
+    // The FULL raw body is stored, whatever the scheme read out of it — the event log is the
+    // audit record, so nothing the provider sent is discarded.
     return { type, idempotencyKey, payload: json };
   }
+}
+
+/** Node lowercases header names; an array (a repeated header) takes the first value. */
+function headerValue(
+  headers: Record<string, string | string[] | undefined>,
+  name: string,
+): string | undefined {
+  const value = headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] : value;
 }

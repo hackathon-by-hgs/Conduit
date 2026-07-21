@@ -18,3 +18,6 @@ export * from './requests';
 // Routes + SSE contract
 export * from './routes';
 export * from './stream';
+
+// Service authentication
+export * from './auth';

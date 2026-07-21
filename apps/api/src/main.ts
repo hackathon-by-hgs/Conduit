@@ -23,9 +23,11 @@ async function bootstrap(): Promise<void> {
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.enableCors({ origin: config.webOrigin, credentials: true });
 
-  await app.listen(config.apiPort);
+  // 0.0.0.0, not localhost: a container's health check and router reach the process from
+  // outside it, and a loopback-only bind is invisible there.
+  await app.listen(config.apiPort, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`Conduit API listening on http://localhost:${config.apiPort}`);
+  console.log(`Conduit API listening on port ${config.apiPort}`);
 }
 
 void bootstrap();

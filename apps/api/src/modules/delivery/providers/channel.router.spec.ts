@@ -52,6 +52,37 @@ describe('ChannelRouter · recipient resolution', () => {
   it('has no sensible SMS default, so an absent number stays empty and fails validation', () => {
     expect(router.resolveRecipient({}, 'sms', 'stripe')).toBe('');
   });
+
+  /**
+   * A gateway posts its own envelope, not Conduit's — so the payer's address is nested. Get
+   * this wrong and every Monnify receipt silently goes to the sink instead of the customer.
+   */
+  it('finds the payer address inside a gateway envelope', () => {
+    const monnify = {
+      eventType: 'SUCCESSFUL_TRANSACTION',
+      eventData: {
+        transactionReference: 'MNFY|1',
+        customer: { email: 'ada@example.com', name: 'Ada Lovelace' },
+      },
+    };
+    expect(router.resolveRecipient(monnify, 'email', 'monnify')).toBe('ada@example.com');
+    expect(router.resolveRecipient({ customer: { email: 'top@example.com' } }, 'email', 's')).toBe(
+      'top@example.com',
+    );
+  });
+
+  it('still sinks when the nested address is missing or unusable', () => {
+    expect(router.resolveRecipient({ eventData: { customer: {} } }, 'email', 'monnify')).toBe(
+      'monnify@webhooks.conduit.dev',
+    );
+    expect(router.resolveRecipient({ eventData: null }, 'email', 'monnify')).toBe(
+      'monnify@webhooks.conduit.dev',
+    );
+    // A nested address is an email address; it must not leak into the SMS path.
+    expect(
+      router.resolveRecipient({ eventData: { customer: { email: 'a@b.com' } } }, 'sms', 'monnify'),
+    ).toBe('');
+  });
 });
 
 describe('ChannelRouter · dispatch', () => {

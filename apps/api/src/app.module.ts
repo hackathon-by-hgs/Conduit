@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/config.module';
 import { AppConfigService } from './config/config.service';
+import { ApiKeyGuard } from './common/auth/api-key.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { OutboxModule } from './outbox/outbox.module';
@@ -34,6 +36,10 @@ import { StatsModule } from './modules/stats/stats.module';
     ReconciliationModule, // BE2 — invariant + gaps
     StreamModule, // BE2 — SSE
     StatsModule, // BE2 — dashboard counts
+  ],
+  providers: [
+    // Global by default: every route needs the API key unless it opts out with @Public().
+    { provide: APP_GUARD, useClass: ApiKeyGuard },
   ],
 })
 export class AppModule {}

@@ -10,8 +10,13 @@ export class AppConfigService {
   get nodeEnv() {
     return this.config.get('NODE_ENV', { infer: true });
   }
-  get apiPort() {
-    return this.config.get('API_PORT', { infer: true });
+  /** Port to bind. A host-injected PORT wins over API_PORT — see the schema for why. */
+  get apiPort(): number {
+    return (
+      this.config.get('PORT', { infer: true }) ??
+      this.config.get('API_PORT', { infer: true }) ??
+      3001
+    );
   }
   get databaseUrl() {
     return this.config.get('DATABASE_URL', { infer: true });
@@ -27,6 +32,11 @@ export class AppConfigService {
   }
   get emailFrom() {
     return this.config.get('EMAIL_FROM', { infer: true });
+  }
+
+  /** Shared service key. Empty means authentication is disabled (local dev only). */
+  get apiKey() {
+    return this.config.get('CONDUIT_API_KEY', { infer: true });
   }
 
   /** Whether ingest HMAC verification is enforced (false = local/mock bypass). */
@@ -48,6 +58,11 @@ export class AppConfigService {
 
   get outboxBatchSize() {
     return this.config.get('OUTBOX_BATCH_SIZE', { infer: true });
+  }
+
+  /** Whether the worker auto-creates a send for every ingested event (off = SDK-driven). */
+  get autoDeliver() {
+    return this.config.get('AUTO_DELIVER', { infer: true });
   }
 
   get deliveryMaxAttempts() {

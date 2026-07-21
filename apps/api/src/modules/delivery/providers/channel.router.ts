@@ -49,8 +49,19 @@ export class ChannelRouter {
   /** Recipient for a channel, defaulting to a per-source sink when the payload omits one. */
   resolveRecipient(payload: Record<string, unknown>, channel: Channel, source: string): string {
     if (typeof payload.to === 'string' && payload.to.length > 0) return payload.to;
-    // No recipient in the payload. Email gets a per-source sink so the demo still flows;
-    // SMS has no sensible default, so it fails validation in the provider and dead-letters.
+
+    // No explicit `to`. A gateway posts its own envelope rather than Conduit's, so for email
+    // look where a payer's address actually lives — Monnify nests it under
+    // `eventData.customer.email`. This is the difference between a real receipt and a sink.
+    if (channel === 'email') {
+      const nested =
+        readString(payload, 'eventData', 'customer', 'email') ??
+        readString(payload, 'customer', 'email');
+      if (nested) return nested;
+    }
+
+    // Nothing usable. Email gets a per-source sink so the demo still flows; SMS has no
+    // sensible default, so it fails validation in the provider and dead-letters.
     return channel === 'email' ? `${source}@webhooks.conduit.dev` : '';
   }
 
@@ -68,4 +79,14 @@ export class ChannelRouter {
     }
     return provider.send(request);
   }
+}
+
+/** Walk a nested path, returning the value only if it bottoms out in a non-empty string. */
+function readString(root: Record<string, unknown>, ...path: string[]): string | undefined {
+  let node: unknown = root;
+  for (const key of path) {
+    if (typeof node !== 'object' || node === null) return undefined;
+    node = (node as Record<string, unknown>)[key];
+  }
+  return typeof node === 'string' && node.length > 0 ? node : undefined;
 }

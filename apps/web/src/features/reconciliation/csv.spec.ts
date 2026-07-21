@@ -23,7 +23,15 @@ const report: ReconcileReportDto = {
       resolvedAt: null,
     },
   ],
-  summary: { no_send: 1, orphan_send: 0, duplicate_send: 1, stuck: 0, total: 2, open: 2, resolved: 0 },
+  summary: {
+    no_send: 1,
+    orphan_send: 0,
+    duplicate_send: 1,
+    stuck: 0,
+    total: 2,
+    open: 2,
+    resolved: 0,
+  },
   lastRunAt: '2026-07-19T12:00:30.000Z',
   invariantHolds: false,
 };

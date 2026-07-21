@@ -70,15 +70,23 @@ export class ReconciliationRepository {
     return rows.map((r) => r.id);
   }
 
-  /** Events with more than one delivered send → `duplicate_send`. */
+  /**
+   * The SAME message delivered more than once → `duplicate_send`.
+   *
+   * Grouped by (causedBy, channel, to), not by event alone: one event legitimately producing
+   * both a receipt email and a confirmation SMS is two different messages, not a duplicate.
+   * Only the same content going to the same recipient on the same channel twice is a fault.
+   */
   async eventsWithDuplicateDeliveredSends(): Promise<string[]> {
     const groups = await this.prisma.send.groupBy({
-      by: ['causedBy'],
+      by: ['causedBy', 'channel', 'to'],
       where: { status: 'sent' },
       _count: { causedBy: true },
+      // Counts rows within each (causedBy, channel, to) group.
       having: { causedBy: { _count: { gt: 1 } } },
     });
-    return groups.map((g) => g.causedBy);
+    // Gaps are keyed on the event, so collapse repeats across channels for the same event.
+    return [...new Set(groups.map((g) => g.causedBy))];
   }
 
   /** Sends stuck in a non-terminal state past a threshold → `stuck`. */

@@ -20,9 +20,9 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a?logo=nodedotjs&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-29_passing-2ea44f)
-![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+![Tests](https://img.shields.io/badge/tests-125_passing-2ea44f)
+[![CI](https://github.com/Maxima24/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/Maxima24/conduit/actions/workflows/ci.yml)
+![License](https://img.shields.io/badge/license-MIT-2ea44f)
 
 <br/>
 
@@ -271,11 +271,15 @@ The claim isn't "trust us" — it's measurable. The test: run **N events with in
   </tr>
 </table>
 
-**Links** _(fill in once deployed):_
+**Links** — both services deploy from the one [`render.yaml`](render.yaml) Blueprint:
 
-- **Live app:** `https://<your-vercel-app>.vercel.app` _(placeholder)_
-- **API:** `https://<your-render-service>.onrender.com` _(placeholder)_
+- **Live app:** https://conduit-dashboard-apiconf.onrender.com
+- **API:** https://conduit-api-apiconf.onrender.com
 - **Demo video:** `<link>` _(placeholder)_
+
+> Render appends a suffix if a service name is already taken — confirm both URLs after the
+> first deploy and correct `WEB_ORIGIN` / `CONDUIT_API_URL` in `render.yaml` if they differ.
+> On the free tier the first request after 15 minutes idle cold-starts in roughly a minute.
 
 ---
 
@@ -544,9 +548,28 @@ sequenceDiagram
 
 The resulting receipt is a `Send` with `causedBy` set to this event's `id`, so the reconciler can later prove the payment produced exactly one delivered receipt.
 
+**Signature verification.** Monnify does not use Conduit's generic scheme, so `monnify` gets its own — [`webhooks/schemes/monnify.scheme.ts`](apps/api/src/modules/webhooks/schemes/monnify.scheme.ts):
+
+|                 | Conduit's generic scheme           | **Monnify**                                                                                                              |
+| --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Header          | `x-signature`                      | `monnify-signature`                                                                                                      |
+| Algorithm       | HMAC-**SHA256** over the raw bytes | HMAC-**SHA512** over the raw bytes                                                                                       |
+| Key             | `WEBHOOK_SECRET_<SOURCE>`          | `WEBHOOK_SECRET_MONNIFY` (your Monnify **client secret**)                                                                |
+| Idempotency key | top-level `idempotencyKey` / `id`  | `eventData.transactionReference` (or the `settlementReference` / `refundReference` / `reference` the event type carries) |
+
+Verification is over the **exact raw bytes** — a re-serialised body reorders keys and the digest will not match. Comparison is timing-safe, and a wrong-algorithm digest of the same body is rejected (there's a test for exactly that).
+
+**Recipient.** Monnify nests the payer's address at `eventData.customer.email`, so the auto-delivered receipt goes to the actual customer rather than a sink.
+
 **Configuration.** Set `WEBHOOK_SECRET_MONNIFY` to your Monnify client secret and run against the Monnify **sandbox** while testing.
 
-> **Integration status (honest):** the webhook handler is **source-generic** — it verifies an HMAC over the raw bytes and extracts the idempotency key from the payload, so `monnify` works as a source today. Monnify's exact scheme (a **SHA-512** HMAC in the `monnify-signature` header, and mapping `eventData.transactionReference` → idempotency key) is the per-source adaptation, tracked in [Implementation Status](#implementation-status). Nothing here claims a live Monnify call that isn't in the code.
+**Try it without the sandbox.** The generator emits real-shaped Monnify notifications signed the way Monnify signs them:
+
+```bash
+pnpm --filter @conduit/api webhooks:generate -- --sources monnify --count 100 --dup-rate 0.2
+```
+
+> **Integration status (honest):** the signature scheme, the event-type → reference mapping and the nested-recipient lookup are implemented and unit-tested against Monnify's documented format. They have not been run against a live Monnify sandbox account — that needs merchant credentials. Nothing here claims a live Monnify call that isn't in the code.
 
 ---
 
@@ -630,18 +653,20 @@ cp .env.example .env
 
 <br/>
 
-| Variable                  | Scope | Description                                                                                                                                                               |
-| ------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | API   | PostgreSQL connection string. Defaults point at the Docker service on host port **5435**.                                                                                 |
-| `REDIS_URL`               | API   | Redis connection string. Defaults to the Docker service on host port **6380**.                                                                                            |
-| `API_PORT`                | API   | Port the NestJS API listens on (default `3001`).                                                                                                                          |
-| `WEB_ORIGIN`              | API   | Allowed CORS origin (default `http://localhost:3000`).                                                                                                                    |
-| `RESEND_API_KEY`          | API   | Resend API key. A real `re_...` key ⇒ **LIVE** mode (real email). Absent/placeholder ⇒ **SIMULATED** mode — retry/DLQ/replay behave identically but nothing is sent.      |
-| `DELIVERY_BACKOFF_CAP_MS` | API   | Ceiling for the exponential retry backoff (default `60000`).                                                                                                              |
-| `EMAIL_FROM`              | API   | From-address for outbound email.                                                                                                                                          |
-| `WEBHOOK_SECRET_<SOURCE>` | API   | Per-source HMAC secret, e.g. `WEBHOOK_SECRET_MONNIFY` (your Monnify client secret). If unset for a source, signature verification is **skipped in dev** (with a warning). |
-| `NEXT_PUBLIC_API_URL`     | Web   | Base URL of the API (exposed to the browser).                                                                                                                             |
-| `NEXT_PUBLIC_USE_MOCKS`   | Web   | `true` renders every view against in-memory fixtures; `false` hits the live API.                                                                                          |
+| Variable                  | Scope     | Description                                                                                                                                                                                                                                                                                 |
+| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | API       | PostgreSQL connection string. Defaults point at the Docker service on host port **5435**.                                                                                                                                                                                                   |
+| `REDIS_URL`               | API       | Redis connection string. Defaults to the Docker service on host port **6380**.                                                                                                                                                                                                              |
+| `API_PORT`                | API       | Port the NestJS API listens on (default `3001`).                                                                                                                                                                                                                                            |
+| `WEB_ORIGIN`              | API       | Allowed CORS origin (default `http://localhost:3000`).                                                                                                                                                                                                                                      |
+| `RESEND_API_KEY`          | API       | Resend API key. A real `re_...` key ⇒ **LIVE** mode (real email). Absent/placeholder ⇒ **SIMULATED** mode — retry/DLQ/replay behave identically but nothing is sent.                                                                                                                        |
+| `DELIVERY_BACKOFF_CAP_MS` | API       | Ceiling for the exponential retry backoff (default `60000`).                                                                                                                                                                                                                                |
+| `AUTO_DELIVER`            | API       | Auto-send for every ingested event (default `true`). Set `false` when using `@conduit/sdk`, where your code calls `conduit.send()` instead.                                                                                                                                                 |
+| `CONDUIT_API_KEY`         | API + Web | Shared service key. Every route requires it except `POST /webhooks/:source` (HMAC-authenticated) and `/health`. **Empty disables auth entirely** (with a boot warning) — set it for anything beyond localhost. The web app reads it _server-side_ for its proxy; it is not `NEXT_PUBLIC_*`. |
+| `EMAIL_FROM`              | API       | From-address for outbound email.                                                                                                                                                                                                                                                            |
+| `WEBHOOK_SECRET_<SOURCE>` | API       | Per-source HMAC secret, e.g. `WEBHOOK_SECRET_MONNIFY` (your Monnify client secret). If unset for a source, signature verification is **skipped in dev** (with a warning).                                                                                                                   |
+| `NEXT_PUBLIC_API_URL`     | Web       | Base URL of the API (exposed to the browser).                                                                                                                                                                                                                                               |
+| `NEXT_PUBLIC_USE_MOCKS`   | Web       | `true` renders every view against in-memory fixtures; `false` hits the live API.                                                                                                                                                                                                            |
 
 </details>
 
@@ -693,18 +718,19 @@ pnpm --filter @conduit/api db:migrate:deploy
 
 Base URL: `http://localhost:3001`. All list endpoints are **cursor-paginated** and return the `Paginated<T>` envelope. All non-2xx responses return the shared `ApiError` envelope. There is **no Swagger/OpenAPI document** in the repository yet — the contract lives in `packages/contracts` (routes in `src/routes.ts`, DTOs in `src/dto`).
 
-| Method | Path                | Description                                                                |
-| ------ | ------------------- | -------------------------------------------------------------------------- |
-| `POST` | `/webhooks/:source` | Ingest a webhook: HMAC verify → dedupe → persist → enqueue.                |
-| `GET`  | `/events`           | List events (cursor + filters: `status`, `source`, `from`, `to`, `limit`). |
-| `GET`  | `/events/:id`       | Event detail with nested sends and attempts.                               |
-| `GET`  | `/sends`            | List sends (filter by `status`; DLQ = `dead_lettered`).                    |
-| `POST` | `/sends/:id/replay` | Re-enqueue a dead-lettered send (idempotent).                              |
-| `GET`  | `/reconcile`        | Reconciliation report (`Gap[]` + summary, `lastRunAt`, `invariantHolds`; optional `from`/`to`/`status=all\|open\|resolved`). |
-| `GET`  | `/reconcile/export.csv` | The same report as a downloadable CSV, honouring the same filters. |
-| `GET`  | `/stream`           | Server-Sent Events: pushes event / send / gap change notifications.        |
-| `GET`  | `/stats`            | Dashboard counts.                                                          |
-| `GET`  | `/health`           | Liveness probe.                                                            |
+| Method | Path                    | Description                                                                                                                  |
+| ------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/webhooks/:source`     | Ingest a webhook: HMAC verify → dedupe → persist → enqueue.                                                                  |
+| `POST` | `/sends`                | Create an outbound send (idempotent). The endpoint behind `conduit.send()`.                                                  |
+| `GET`  | `/events`               | List events (cursor + filters: `status`, `source`, `from`, `to`, `limit`).                                                   |
+| `GET`  | `/events/:id`           | Event detail with nested sends and attempts.                                                                                 |
+| `GET`  | `/sends`                | List sends (filter by `status`; DLQ = `dead_lettered`).                                                                      |
+| `POST` | `/sends/:id/replay`     | Re-enqueue a dead-lettered send (idempotent).                                                                                |
+| `GET`  | `/reconcile`            | Reconciliation report (`Gap[]` + summary, `lastRunAt`, `invariantHolds`; optional `from`/`to`/`status=all\|open\|resolved`). |
+| `GET`  | `/reconcile/export.csv` | The same report as a downloadable CSV, honouring the same filters.                                                           |
+| `GET`  | `/stream`               | Server-Sent Events: pushes event / send / gap change notifications.                                                          |
+| `GET`  | `/stats`                | Dashboard counts.                                                                                                            |
+| `GET`  | `/health`               | Liveness probe.                                                                                                              |
 
 ### Request / Response Examples
 
@@ -805,7 +831,38 @@ curl "http://localhost:3001/reconcile"
 
 ## Authentication Flow
 
-Conduit has no user login — it is a machine-to-machine service. "Authentication" is **provider webhook verification** on ingest:
+Conduit has no user login — it is a machine-to-machine service. There are **two independent
+layers**, protecting two different things.
+
+### 1. The service key (who may call the API)
+
+A single shared key, `CONDUIT_API_KEY`, sent on every request as `Authorization: Bearer <key>`
+(or `x-api-key: <key>`). A global guard enforces it and compares in constant time.
+
+Two routes are exempt, by design:
+
+| Route                    | Why                                                                                                                                                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /webhooks/:source` | Stripe and friends cannot send our key. It is authenticated by its per-source HMAC instead — a stronger guarantee, since that proves the payload is untampered rather than merely that the caller knows a secret. |
+| `GET /health`            | Liveness probes must work without credentials.                                                                                                                                                                    |
+
+Exemption is **opt-out** (`@Public()`), so a newly added endpoint is protected by default.
+A forgotten guard is a silent hole; a forgotten `@Public()` is an immediate, obvious 401.
+
+Leaving `CONDUIT_API_KEY` empty disables the layer entirely and logs a loud warning at boot.
+That keeps local development, the seed script and the mock generator frictionless — but it
+means an unset variable in production is wide open, so set it.
+
+**The dashboard runs in a browser and therefore cannot hold the key.** Anything reachable
+from client code is readable in devtools. Instead the browser calls a same-origin proxy at
+`/api/conduit/*` ([route.ts](apps/web/src/app/api/conduit/[...path]/route.ts)) which attaches
+the key server-side. This is also what makes SSE work at all: `EventSource` cannot set request
+headers, so a key-protected `/stream` is unreachable from the browser without a proxy.
+
+> The proxy protects the **key**, not the data: it has no session of its own, so anyone who
+> can load the dashboard can use it. A real deployment needs a user login in front.
+
+### 2. Webhook signature verification (whether an event is genuine)
 
 1. The API is created with `rawBody: true` so the exact received bytes are available.
 2. A provider sends the HMAC signature in the `x-signature` header.
@@ -940,32 +997,36 @@ pnpm --filter @conduit/api test:int    # backend integration tests (needs Postgr
 
 ## Deployment Guide
 
-**API → Render** (`render.yaml`):
+The whole stack — API, dashboard, Postgres and Key Value — is one Render Blueprint. See [`render.yaml`](render.yaml); the step-by-step runbook is [docs/deploy-render.md](docs/deploy-render.md).
 
-- Build: `pnpm install && pnpm turbo run build --filter=@conduit/api && pnpm --filter @conduit/api db:generate`
-- Start: `pnpm --filter @conduit/api db:migrate:deploy && pnpm --filter @conduit/api start:prod`
-- Health check: `/health`
-- Provisions a free Postgres database and Redis instance; set `WEB_ORIGIN`, `RESEND_API_KEY`, and `EMAIL_FROM` as service secrets.
+| Service | Type | What it runs |
+| --- | --- | --- |
+| `conduit-api-apiconf` | web (free) | NestJS API **plus** the delivery worker, outbox dispatcher and reconciler, in-process |
+| `conduit-dashboard-apiconf` | web (free) | Next.js dashboard and its server-side API proxy |
+| `conduit-cache` | keyvalue (free) | BullMQ's backing store, `maxmemoryPolicy: noeviction` |
+| `conduit-db` | postgres (free) | Event log, sends, attempts, gaps, outbox |
 
-**Web → Vercel:**
+**In short:** push to `master` → Render → **New → Blueprint** → pick the repo → fill the prompted secrets (`RESEND_API_KEY`, `EMAIL_FROM`, `WEBHOOK_SECRET_*`) → Apply. `CONDUIT_API_KEY` is generated for the API and copied to the dashboard automatically, so the two agree without you handling the secret.
 
-- Root directory: `apps/web`
-- Build command: `cd ../.. && pnpm turbo run build --filter=@conduit/web`
-- Set `NEXT_PUBLIC_API_URL` to the Render API URL and `NEXT_PUBLIC_USE_MOCKS=false`.
+Two values in `render.yaml` are **hardcoded public URLs** (`WEB_ORIGIN` on the API, `CONDUIT_API_URL` on the dashboard) because a free web service cannot receive private-network traffic. If Render appends a suffix to either service name, correct these after the first deploy.
+
+> **Free-tier caveats.** Services **spin down after 15 minutes** of no inbound traffic and cold-start in roughly a minute — and while spun down the process is *stopped*, so the in-process worker consumes nothing and the reconciler's timer does not fire. Hit `/health` a minute before a demo. Free Key Value has **no persistence**; queued jobs can be lost on a restart, which the transactional outbox is what makes survivable. Free Postgres **expires 30 days after creation**. SSE relies on the 15s heartbeat plus the client's polling fallback.
 
 **Local infrastructure:** `docker-compose.yml` runs Postgres (host `5435`) and Redis (host `6380`) with health checks.
 
-> **Free-tier caveats (from `render.yaml`):** services sleep after inactivity (cold start ~30s — warm before a demo); the BullMQ worker runs in-process with the API at this stage; SSE relies on the 15s heartbeat + the client polling fallback through the proxy.
-
 ## CI/CD
 
-No CI/CD workflows are present in the repository yet (`.github/workflows` does not exist). **Recommended next step:** add a GitHub Actions workflow running `pnpm install`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` on pull requests. _(Placeholder — requires manual completion.)_
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `master` and every pull request:
+
+- **verify** — `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` across the workspace.
+- **integration** — the `*.int.spec.ts` suite against real Postgres and Redis service containers. These tests exist to prove the **database constraint** (not an app-level check) is what enforces idempotency under a concurrent race, which an in-memory fake cannot demonstrate.
+
+Render deploys on push to `master` independently of CI status; wire up a branch protection rule if you want CI to gate deploys.
 
 ---
 
 ## Implementation Status
 
-<<<<<<< HEAD
 Conduit is functional end to end: the full contract and schema, webhook ingest (idempotent
 persist + transactional outbox), the delivery worker, retry/DLQ/replay, the scheduled
 reconciler, the read APIs, and the frontend logic layer are all implemented and tested.
@@ -982,35 +1043,24 @@ for the detailed write-up and reproduction steps):
   `orphan_send`, and **auto-resolves** gaps once the underlying violation is repaired.
 - **`duplicatesRejected` stat** — a real count of re-deliveries rejected by the idempotency
   constraint.
+- **Monnify ingest** — the SHA-512 `monnify-signature` scheme over the raw body, with
+  `eventData.transactionReference` mapped to the idempotency key. See
+  [Monnify Integration](#monnify-integration).
+- **CSV export** — `GET /reconcile/export.csv`, honouring the same filters as the JSON report.
+- **The SDK** (`packages/sdk`) — `handle()`, `send()`, `reconcile()` plus read helpers,
+  Express and Fetch adapters. See [its README](packages/sdk/README.md). Run the service with
+  `AUTO_DELIVER=false` when using it, so your `send()` calls are the only deliveries.
+
+**Still stubbed / not built:**
 
 - **SMS channel** — routed through `ChannelRouter` and exercising the full retry/DLQ/replay
   path, but the provider itself is a **log-only stub** (P2): it validates E.164 and logs,
   and never sends a real SMS.
-- **CSV export** — `GET /reconcile/export.csv`, honouring the same filters as the JSON report.
-
-**Still stubbed / not built:**
-
 - **`webhook` channel** — a valid `Channel` in the contract with no provider yet; falls back to email.
-- **Hardened per-source HMAC schemes** — beyond generic HMAC-SHA256, including **Monnify's
-  SHA-512 `monnify-signature`** scheme and mapping `eventData.transactionReference` → idempotency key.
-=======
-Conduit has the full contract, schema, and every module and route wired end to end. The read paths (events, sends, reconcile, stats), idempotent webhook ingest, the delivery pipeline, and the entire frontend logic layer are implemented and tested.
-
-**Implemented**
-
-- **Webhook ingest** — HMAC signature verification (`common/crypto/signature.ts`), idempotent persist on a unique key, and enqueue.
-- **Delivery pipeline** — `delivery.service` + `delivery.repository` create sends, record attempts, retry, and dead-letter, driven by a **transactional outbox** (`outbox.dispatcher`) for reliable hand-off.
-- **`POST /sends/:id/replay`** — idempotent re-enqueue of a dead-lettered send.
-- **Migrations** — keyset-pagination indexes, per-source idempotency, send dedupe key, and a reconcile-gap unique constraint.
-- **Frontend logic layer** — optimistic replay + bulk replay, URL-synced filters, cursor pagination, SSE-with-polling-fallback, CSV export, and the gap deep-link contract (unit-tested).
-
-**Still stubbed / pending** (clearly-marked `TODO(BEx)`)
-
-- **Reconciler scheduling** — `runReconciler()` is implemented but not yet wired to a periodic schedule; `orphan_send` detection is pending.
-- **Real Resend send** — the provider returns a stubbed success instead of a live send.
-- **`duplicatesRejected` stat** — currently returns `0` (duplicates aren't yet counted in a metric).
-- **Monnify-specific signature** — the generic HMAC verification is in place; Monnify's **SHA-512 `monnify-signature`** scheme and the `eventData.transactionReference` → idempotency-key mapping are the remaining per-source adaptation.
->>>>>>> 21dc647651d6671d6af992b0b43e216a109f37b7
+- **Per-key management** — auth is one shared `CONDUIT_API_KEY`, not individually issued,
+  scoped, revocable keys. The `/sdk/keys` and `/sdk/scopes` dashboard pages remain static UI.
+- **A user login for the dashboard** — the proxy keeps the service key off the browser, but
+  the dashboard itself is unauthenticated.
 
 This section is deliberately explicit so reviewers know exactly what is live versus stubbed.
 
@@ -1025,11 +1075,7 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## Known Limitations
 
-<<<<<<< HEAD
 - A few features remain stubbed (see [Implementation Status](#implementation-status)).
-=======
-- A few pieces are still stubbed — the reconciler schedule, the live Resend send, the `duplicatesRejected` metric, and the Monnify-specific signature scheme (see [Implementation Status](#implementation-status)).
->>>>>>> 21dc647651d6671d6af992b0b43e216a109f37b7
 - On free-tier hosting the worker runs in-process with the API and services cold-start after inactivity.
 - Per-source in-process ordering (`KeyedSerializer`) assumes a single worker instance; the
   correctness-critical per-source lock in `ensureSend` is a Postgres advisory lock and does
@@ -1082,7 +1128,7 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## License
 
-No `LICENSE` file is present in the repository yet. _(Placeholder — add a license, e.g. MIT, and update this section and the badge.)_
+Released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 

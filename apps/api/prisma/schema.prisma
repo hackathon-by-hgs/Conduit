@@ -78,6 +78,11 @@ model Send {
   attemptBudget  Int            @default(5)
   lastError      String?
   dedupeKey      String? // hash(to+channel+payload) — collapses near-duplicate sends in a window
+  /// Exactly-once key for sends created through the SDK / `POST /sends`. Supplied by the
+  /// caller, or derived from (causedBy + channel + to + payload) when omitted, so a retried
+  /// call returns the ORIGINAL send instead of delivering twice. Null for sends the worker
+  /// creates automatically — those are already deduped per event by `ensureSend`.
+  idempotencyKey String?        @unique
   createdAt      DateTime       @default(now())
   deliveredAt    DateTime?
   attemptHistory Attempt[]

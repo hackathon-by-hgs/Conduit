@@ -47,6 +47,9 @@ importers:
       '@conduit/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@conduit/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@nestjs/bullmq':
         specifier: ^11.0.4
         version: 11.0.4(@nestjs/common@11.1.28(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(bullmq@5.80.9)
@@ -236,6 +239,37 @@ importers:
       typescript-eslint:
         specifier: ^8.20.0
         version: 8.64.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/sdk:
+    dependencies:
+      '@conduit/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@conduit/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@conduit/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      dotenv-cli:
+        specifier: ^8.0.0
+        version: 8.0.0
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.5(jiti@2.7.0)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 2.1.9(@types/node@24.13.3)(lightningcss@1.32.0)(terser@5.49.0)
 
   packages/tsconfig: {}
 

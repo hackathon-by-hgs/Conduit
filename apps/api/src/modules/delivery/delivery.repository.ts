@@ -26,6 +26,83 @@ export class DeliveryRepository {
     return this.prisma.webhookEvent.findUnique({ where: { id: eventId } });
   }
 
+  getSend(sendId: string): Promise<Send | null> {
+    return this.prisma.send.findUnique({ where: { id: sendId } });
+  }
+
+  /**
+   * Create an explicit send — the `POST /sends` / `conduit.send()` path, where the CALLER
+   * decides the recipient and content rather than the worker inferring them from the event.
+   *
+   * The send row and its outbox row are written in ONE transaction, so "the send exists" and
+   * "the delivery is queued" commit together. That reuses the same crash-safe hand-off BE1
+   * built for ingest: if the process dies here, the dispatcher re-drains on boot.
+   *
+   * Exactly-once: a repeat call with the same `idempotencyKey` loses the unique-index race
+   * and returns the ORIGINAL send instead of delivering a second time.
+   */
+  async createExplicitSend(params: {
+    eventId: string;
+    channel: string;
+    to: string;
+    payload: Record<string, unknown>;
+    idempotencyKey: string;
+    dedupeKey: string;
+    maxAttempts: number;
+  }): Promise<{ send: Send; created: boolean }> {
+    try {
+      const send = await this.prisma.$transaction(async (tx) => {
+        const event = await tx.webhookEvent.findUnique({ where: { id: params.eventId } });
+        if (!event) {
+          throw new NotFoundException(`Event ${params.eventId} not found`);
+        }
+
+        const created = await tx.send.create({
+          data: {
+            causedBy: params.eventId,
+            channel: params.channel,
+            to: params.to,
+            payload: params.payload as Prisma.InputJsonValue,
+            status: 'pending',
+            dedupeKey: params.dedupeKey,
+            idempotencyKey: params.idempotencyKey,
+            attemptBudget: params.maxAttempts,
+          },
+        });
+
+        await tx.outboxJob.create({
+          data: {
+            eventId: params.eventId,
+            payload: {
+              eventId: params.eventId,
+              source: event.source,
+              receivedAt: event.receivedAt.toISOString(),
+              sendId: created.id,
+            },
+          },
+        });
+
+        // Creating a send IS the decision about how to handle this event, so mark it
+        // processed — exactly as the auto-pilot path does. Without this the event would sit
+        // at `received` forever, and the reconciler (which only judges processed events)
+        // would both ignore a send that never lands AND flag this healthy one as an
+        // `orphan_send`, since that means "terminal send whose event isn't processed".
+        await this.markProcessed(tx, params.eventId);
+
+        return created;
+      });
+      return { send, created: true };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const existing = await this.prisma.send.findUniqueOrThrow({
+          where: { idempotencyKey: params.idempotencyKey },
+        });
+        return { send: existing, created: false };
+      }
+      throw error;
+    }
+  }
+
   /**
    * Idempotently ensure a Send exists for an event. Per-source ordering is enforced with a
    * single Postgres advisory lock (parallel across sources, serial within one) — one lock
@@ -41,8 +118,12 @@ export class DeliveryRepository {
       // deserialize the `void` return of pg_advisory_xact_lock directly).
       await tx.$queryRaw`SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(hashtext(${params.source}))) AS _lock`;
 
-      // Idempotent: a retry / re-delivery of the same event reuses its send.
-      const existing = await tx.send.findFirst({ where: { causedBy: params.eventId } });
+      // Idempotent: a retry / re-delivery of the same event reuses its send. Scoped to
+      // auto-created sends (null idempotencyKey) so an explicit `POST /sends` for the same
+      // event is never mistaken for this one's work.
+      const existing = await tx.send.findFirst({
+        where: { causedBy: params.eventId, idempotencyKey: null },
+      });
       if (existing) {
         const terminal = existing.status === 'sent' || existing.status === 'dead_lettered';
         return { sendId: existing.id, status: terminal ? 'already_terminal' : 'resumed' };
@@ -189,4 +270,11 @@ export class DeliveryRepository {
       },
     });
   }
+}
+
+/** Prisma reports a unique-constraint failure as P2002. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002'
+  );
 }

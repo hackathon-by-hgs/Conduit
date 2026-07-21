@@ -1,16 +1,57 @@
-# Render staging (free tier). Frontend deploys to Vercel separately (see README).
-# Caveats: free services sleep after inactivity (cold start ~30s — warm before a demo);
-# the BullMQ worker runs in-process with the API at this stage; SSE relies on the 15s
-# heartbeat + polling fallback through the proxy.
+# Conduit — one Render Blueprint for the whole stack: API, dashboard, Postgres, Key Value.
+#
+# Everything is on Render's FREE tier, which has consequences you should read before demoing:
+#
+#   · Free web services SPIN DOWN after 15 minutes with no inbound traffic, and cold-start in
+#     roughly a minute. While spun down the process is STOPPED — the in-process BullMQ worker
+#     consumes nothing and the reconciler's timer does not fire. Hit /health a minute before
+#     a demo, and expect the first page load to be slow.
+#   · Free Key Value has NO persistence and may be restarted at any time, so queued/delayed
+#     jobs can be lost. That is survivable here by design: the delivery intent is committed to
+#     Postgres in the transactional outbox, and the dispatcher re-enqueues from there.
+#   · Free Postgres EXPIRES 30 DAYS after creation (then a 14-day grace period before Render
+#     deletes it and all data). Diarise it.
+#   · Free web services cannot RECEIVE private-network traffic, which is why the dashboard
+#     reaches the API on its public URL rather than through `fromService`.
+#
+# Every service pins `region` — private networking to the database and cache only works
+# within one region.
+#
+# Validate changes before pushing:  render blueprints validate
+
 services:
+  # ── API · NestJS. Also runs the delivery worker, outbox dispatcher and reconciler in-process.
+  # The `-apiconf` suffix is deliberate: plain `conduit-dashboard` is already taken on
+  # onrender.com by another account, and a taken name makes Render silently append its own
+  # suffix — which would break the two hardcoded public URLs below. Both web services carry
+  # the suffix so the pair stays symmetric.
   - type: web
-    name: conduit-api
+    name: conduit-api-apiconf
     runtime: node
     plan: free
-    buildCommand: pnpm install && pnpm turbo run build --filter=@conduit/api && pnpm --filter @conduit/api db:generate
-    startCommand: pnpm --filter @conduit/api db:migrate:deploy && pnpm --filter @conduit/api start:prod
+    region: oregon
     healthCheckPath: /health
+    # pnpm is preinstalled but its version is undocumented, and `packageManager` in
+    # package.json makes a mismatch a hard failure — so pin it explicitly rather than
+    # inheriting whatever the image ships.
+    buildCommand: npm i -g pnpm@9.15.9 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@conduit/api...
+    # `migrate deploy` is idempotent, so running it on every boot is safe and keeps the
+    # schema in step without a paid pre-deploy hook. `exec` hands the container's PID to
+    # Node so SIGTERM reaches the app and shutdown stays graceful.
+    startCommand: pnpm --filter @conduit/api exec prisma migrate deploy && exec node apps/api/dist/main.js
+    # No `rootDir`: files outside it are unavailable at build time, which would cut this
+    # service off from pnpm-workspace.yaml, turbo.json and packages/*.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
     envVars:
+      - key: NODE_VERSION
+        value: '24.14.1'
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
@@ -19,21 +60,82 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          name: conduit-redis
-          type: redis
+          name: conduit-cache
+          type: keyvalue
           property: connectionString
+      # Public URL of the dashboard, for CORS. Verify after the first deploy — Render
+      # appends a suffix if the service name is already taken.
       - key: WEB_ORIGIN
+        value: https://conduit-dashboard-apiconf.onrender.com
+      # Generated once, here, and copied to the dashboard below — both sides must agree.
+      - key: CONDUIT_API_KEY
+        generateValue: true
+      # ── Prompted on blueprint creation ────────────────────────────────────────────────
+      - key: RESEND_API_KEY # blank ⇒ SIMULATED email; retry/DLQ/replay behave identically
         sync: false
-      - key: RESEND_API_KEY
+      - key: EMAIL_FROM # must be on a domain verified with Resend
         sync: false
-      - key: EMAIL_FROM
+      - key: WEBHOOK_SECRET_MONNIFY # your Monnify client secret (SHA-512 scheme)
+        sync: false
+      - key: WEBHOOK_SECRET_STRIPE
+        sync: false
+      - key: WEBHOOK_SECRET_GITHUB
+        sync: false
+      - key: WEBHOOK_SECRET_SLACK
         sync: false
 
-  - type: redis
-    name: conduit-redis
+  # ── Dashboard · Next.js
+  - type: web
+    name: conduit-dashboard-apiconf
+    runtime: node
     plan: free
-    ipAllowList: []
+    region: oregon
+    healthCheckPath: /api/health
+    buildCommand: npm i -g pnpm@9.15.9 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@conduit/web...
+    startCommand: pnpm --filter @conduit/web start
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
+    envVars:
+      - key: NODE_VERSION
+        value: '24.14.1'
+      - key: NODE_ENV
+        value: production
+      # The API's PUBLIC URL. `fromService` would give a private-network host, which a free
+      # web service cannot receive on. Verify this matches the API's real URL after the
+      # first deploy.
+      - key: CONDUIT_API_URL
+        value: https://conduit-api-apiconf.onrender.com
+      # Read server-side only, by the /api/conduit proxy — deliberately NOT NEXT_PUBLIC_*,
+      # so Next refuses to inline it into a browser bundle.
+      - key: CONDUIT_API_KEY
+        fromService:
+          name: conduit-api-apiconf
+          type: web
+          envVarKey: CONDUIT_API_KEY
+      - key: NEXT_PUBLIC_USE_MOCKS
+        value: 'false'
+
+  # ── Key Value (Redis-compatible) · BullMQ's backing store
+  - type: keyvalue
+    name: conduit-cache
+    plan: free
+    region: oregon
+    ipAllowList: [] # empty ⇒ reachable only over the private network
+    # BullMQ requires that its keys are never evicted; the default allkeys-lru would drop
+    # queue state under memory pressure and silently lose jobs.
+    maxmemoryPolicy: noeviction
 
 databases:
   - name: conduit-db
     plan: free
+    databaseName: conduit
+    user: conduit
+    region: oregon
+    postgresMajorVersion: '17'
+    ipAllowList: [] # private network only; add your IP to connect with psql

@@ -4,11 +4,41 @@ import { z } from 'zod';
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3001),
-  DATABASE_URL: z.string().min(1),
+  /**
+   * Injected by the host (Render, Fly, Heroku…) to tell the process which port to bind. It
+   * wins over API_PORT: bind anywhere else and the platform's health check never connects,
+   * so the deploy fails with a service that is actually running fine.
+   */
+  PORT: z.coerce.number().int().positive().optional(),
+  /**
+   * A DIRECT Postgres connection string. Prisma connects through the `@prisma/adapter-pg`
+   * driver adapter (node-postgres), which speaks the Postgres wire protocol over TCP — so a
+   * Prisma Accelerate / Data Proxy URL (`prisma://`, `prisma+postgres://`) cannot work here.
+   * Those are HTTP endpoints; the driver dials them on :5432 and hangs until ETIMEDOUT,
+   * surfacing as an unrelated-looking failure inside the first query. Reject it at boot.
+   */
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .refine((u) => !/^prisma(\+\w+)?:\/\//.test(u), {
+      message:
+        'DATABASE_URL is a Prisma Accelerate/Data Proxy URL, which the @prisma/adapter-pg ' +
+        'driver adapter cannot connect to. Use a direct Postgres connection string ' +
+        '(postgresql://user:password@host:5432/database).',
+    }),
   REDIS_URL: z.string().min(1),
   WEB_ORIGIN: z.string().min(1).default('http://localhost:3000'),
   RESEND_API_KEY: z.string().default(''),
   EMAIL_FROM: z.string().default('conduit@example.dev'),
+  /**
+   * Shared key protecting the service. Every route except `POST /webhooks/:source` (which is
+   * HMAC-authenticated per source) and `GET /health` requires it.
+   *
+   * Left EMPTY, authentication is disabled and the API boots with a loud warning — which
+   * keeps local dev, the seed script and the mock generator frictionless. Always set it for
+   * anything reachable beyond localhost.
+   */
+  CONDUIT_API_KEY: z.string().default(''),
   // Ingest HMAC verification. Default on; set to 'false'/'0' to bypass locally (mock/FE dev).
   WEBHOOK_VERIFY: z
     .string()
@@ -20,6 +50,19 @@ export const envSchema = z.object({
   // Outbox dispatcher (drains persisted delivery intents to BullMQ).
   OUTBOX_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+  /**
+   * Auto-pilot: every ingested event automatically produces a send, with the recipient read
+   * from its payload. Default on, which is what the seed script, webhook generator and demo
+   * rely on.
+   *
+   * Set to false when driving Conduit through the SDK: there, YOUR code decides what to send
+   * via `conduit.send()` / `POST /sends`. Leaving it on while also calling send() means an
+   * event gets both an automatic delivery and your explicit one — two real messages.
+   */
+  AUTO_DELIVER: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false' && v !== '0'),
   // Delivery worker: retry/backoff/DLQ + near-duplicate collapse window.
   DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   DELIVERY_BACKOFF_MS: z.coerce.number().int().positive().default(1000),

@@ -34,6 +34,32 @@ export function jitteredBackoffSettings(): AdvancedOptions {
   };
 }
 
+/**
+ * Redis connection options from a URL.
+ *
+ * Every part matters in production and none of it does locally, which is exactly how this
+ * kind of bug ships: managed Redis hands out a `rediss://` URL (TLS) with a `default`
+ * username, and dropping either the scheme or the username produces a connection that fails
+ * to authenticate — after deploy, not in dev.
+ */
+export function redisConnection(redisUrl: string): {
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  tls?: Record<string, never>;
+} {
+  const url = new URL(redisUrl);
+  const secure = url.protocol === 'rediss:';
+  return {
+    host: url.hostname,
+    port: url.port ? Number(url.port) : 6379,
+    ...(url.username ? { username: decodeURIComponent(url.username) } : {}),
+    ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
+    ...(secure ? { tls: {} } : {}),
+  };
+}
+
 /** Global BullMQ connection. Individual modules `registerQueue` the queues they use. */
 @Global()
 @Module({
@@ -41,13 +67,8 @@ export function jitteredBackoffSettings(): AdvancedOptions {
     BullModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => {
-        const url = new URL(config.redisUrl);
         return {
-          connection: {
-            host: url.hostname,
-            port: url.port ? Number(url.port) : 6379,
-            ...(url.password ? { password: url.password } : {}),
-          },
+          connection: redisConnection(config.redisUrl),
           defaultJobOptions: {
             // The DB attempt budget is what actually decides dead-lettering; BullMQ's
             // attempt count must therefore be at least as large, or the queue would stop

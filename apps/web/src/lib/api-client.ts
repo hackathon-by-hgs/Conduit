@@ -1,8 +1,13 @@
 import type { ApiError } from '@conduit/contracts';
 import { isMockMode, mockResolve } from '@/mocks';
 
-// Normalize so a trailing slash on NEXT_PUBLIC_API_URL can't produce `//path`.
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
+/**
+ * Requests go through the same-origin proxy at /api/conduit, which attaches the service key
+ * server-side. The browser therefore never sees `CONDUIT_API_KEY` — anything reachable from
+ * client code would be readable in devtools, so it cannot hold the secret itself.
+ */
+export const API_PROXY_BASE = '/api/conduit';
+const BASE_URL = API_PROXY_BASE;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export class ApiClientError extends Error {
