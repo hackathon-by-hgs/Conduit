@@ -23,6 +23,7 @@ const report: ReconcileReportDto = {
       resolvedAt: null,
     },
   ],
+<<<<<<< HEAD
   summary: {
     no_send: 1,
     orphan_send: 0,
@@ -32,6 +33,9 @@ const report: ReconcileReportDto = {
     open: 2,
     resolved: 0,
   },
+=======
+  summary: { no_send: 1, orphan_send: 0, duplicate_send: 1, stuck: 0, total: 2, open: 2, resolved: 0 },
+>>>>>>> 154d54140d8b1de02a21664c105ac8b1ea1014d8
   lastRunAt: '2026-07-19T12:00:30.000Z',
   invariantHolds: false,
 };

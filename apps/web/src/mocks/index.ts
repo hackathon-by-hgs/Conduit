@@ -4,6 +4,7 @@ import type {
   Paginated,
   ReconcileReportDto,
 } from '@conduit/contracts';
+import type { EventDto, GapSummary, Paginated, ReconcileReportDto } from '@conduit/contracts';
 import { eventList, mockEventDetail, mockReport, mockSends, mockStats } from './fixtures';
 
 export function isMockMode(): boolean {
