@@ -584,10 +584,12 @@ export function ScopeManager() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col items-stretch justify-center gap-2 px-3 py-2 sm:px-5 md:min-h-[50px] md:flex-row md:items-center md:justify-between md:py-1.5">
-            <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
+          <div className="access-scroll flex min-h-0 items-center gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 sm:px-5 md:min-h-[50px] md:py-1.5">
+            <div className="w-[400px] shrink-0 min-[420px]:w-[430px] md:w-auto">
+              <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
+            </div>
 
-              <div className="access-scroll -mx-3 flex w-[calc(100%+24px)] gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:ml-auto md:w-auto md:overflow-visible md:px-0 md:pb-0">
+            <div className="flex shrink-0 gap-2 md:ml-auto">
               <span data-status-label className="flex h-10 min-w-[112px] shrink-0 items-center rounded-full bg-[#A01016]/10 p-1 pr-3 transition-opacity md:h-[46px] md:min-w-[124px] md:p-1.5 md:pr-4">
                 <span className="mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/5 text-white/50 md:mr-3 md:h-[34px] md:w-[34px]"><Check weight="bold" /></span>
                 <span className="flex flex-col justify-center"><small className="font-sans text-[9px] font-semibold text-white/40 md:text-[10px]">Policy</small><strong className="font-sans text-[11px] font-bold text-[#A01016] md:text-[12px]">{status}</strong></span>
