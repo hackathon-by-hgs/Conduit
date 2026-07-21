@@ -4,12 +4,13 @@ import { WarningCircle } from '@phosphor-icons/react/dist/ssr';
 export function LoadingState({ label = 'Loading telemetry' }: { label?: string }) {
   return (
     <div
-      className="telemetry-state telemetry-loading-state relative flex min-h-[148px] items-center gap-[22px] overflow-hidden rounded-[22px] border border-[#262626] bg-[#0c0c0c] p-[26px_30px]"
+      data-route-state
+      className="telemetry-state telemetry-loading-state relative flex min-h-[120px] items-center gap-5 overflow-hidden rounded-[20px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-5"
       role="status"
     >
       <div className="telemetry-state-copy min-w-0">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#666]">DATA LINK / SYNC</span>
-        <strong className="mt-[8px] block font-sans text-[18px] font-semibold text-[#f5f5f5]">{label}</strong>
+        <span className="font-mono text-[8px] font-medium uppercase tracking-[0.18em] text-white/34">DATA LINK / SYNC</span>
+        <strong className="mt-2 block font-sans text-[15px] font-semibold text-[#f5f5f5]">{label}</strong>
       </div>
       <div className="telemetry-loading-segments ml-auto flex w-[min(38vw,430px)] gap-[4px]" aria-hidden="true">
         {Array.from({ length: 18 }, (_, index) => (
@@ -25,13 +26,14 @@ export function ErrorState({ error }: { error: unknown }) {
 
   return (
     <div
-      className="telemetry-state relative flex min-h-[148px] items-center gap-[22px] overflow-hidden rounded-[22px] border border-[#a01016]/42 bg-[#0c0c0c] p-[26px_30px]"
+      data-route-state
+      className="telemetry-state relative flex min-h-[120px] items-center gap-5 overflow-hidden rounded-[20px] border border-[#A01016]/35 bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-5"
       role="alert"
     >
       <WarningCircle weight="bold" className="h-9 w-9 shrink-0 text-[#a01016]" />
       <div className="telemetry-state-copy min-w-0">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#666]">DATA LINK / INTERRUPTED</span>
-        <strong className="mt-[8px] block font-sans text-[18px] font-semibold text-[#f5f5f5]">Live source unavailable</strong>
+        <span className="font-mono text-[8px] font-medium uppercase tracking-[0.18em] text-white/34">DATA LINK / INTERRUPTED</span>
+        <strong className="mt-2 block font-sans text-[15px] font-semibold text-[#f5f5f5]">Live source unavailable</strong>
         <p className="mt-[7px] break-all text-[12px] text-[#666]">{message}</p>
       </div>
       <b className="ml-auto font-mono text-[9px] uppercase tracking-[0.13em] text-[#a01016] p-[8px_11px]">OFFLINE</b>
@@ -41,7 +43,7 @@ export function ErrorState({ error }: { error: unknown }) {
 
 export function EmptyState({ children = 'Nothing here yet.' }: { children?: ReactNode }) {
   return (
-    <div className="telemetry-state relative flex min-h-[148px] items-center justify-center gap-[22px] overflow-hidden rounded-[22px] border border-[#262626] bg-[#0c0c0c] p-[26px_30px]">
+    <div data-route-state className="telemetry-state relative flex min-h-[120px] items-center justify-center gap-5 overflow-hidden rounded-[20px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-5">
       {/* Radar circle with crosshairs and blip — pseudo-elements handled inline */}
       <div
         className="telemetry-empty-radar relative h-16 w-16 shrink-0 rounded-full border border-[#2e2e2e]
@@ -52,8 +54,8 @@ export function EmptyState({ children = 'Nothing here yet.' }: { children?: Reac
         <i className="absolute left-[42px] top-[19px] h-[6px] w-[6px] rounded-full bg-[#a01016]" />
       </div>
       <div className="telemetry-state-copy min-w-0">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#666]">MONITOR / CLEAR</span>
-        <strong className="mt-[8px] block font-sans text-[18px] font-semibold text-[#f5f5f5]">{children}</strong>
+        <span className="font-mono text-[8px] font-medium uppercase tracking-[0.18em] text-white/34">MONITOR / CLEAR</span>
+        <strong className="mt-2 block font-sans text-[15px] font-semibold text-[#f5f5f5]">{children}</strong>
       </div>
     </div>
   );

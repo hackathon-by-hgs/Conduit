@@ -27,13 +27,13 @@ function prefersReducedMotion() {
 
 export function ConduitMark() {
   return (
-    <span className="relative grid h-12 w-12 place-items-center rounded-[18px] bg-white/[0.045] text-white/88 shadow-[0_12px_28px_rgba(0,0,0,0.32)]">
-      <svg viewBox="0 0 44 44" className="h-7 w-7" aria-hidden="true">
+    <span className="relative grid h-[50px] w-[50px] place-items-center rounded-[18px] border border-white/[0.055] bg-white/[0.035] text-white/90 transition-colors duration-200 group-hover/logo:bg-white/[0.055] group-hover/logo:text-white">
+      <svg viewBox="0 0 44 44" className="h-6 w-6" aria-hidden="true">
         <path d="M8 8h11v5h-6v18h6v5H8z" fill="currentColor" />
         <path d="M25 8h11v28H25v-5h6V13h-6z" fill="currentColor" />
         <path d="M18 19h8v6h-8z" fill="currentColor" />
       </svg>
-      <span className="absolute -bottom-0.5 left-1/2 h-px w-5 -translate-x-1/2 rounded-full bg-[#A01016]/80" aria-hidden="true" />
+      <span className="absolute -bottom-px left-1/2 h-px w-7 -translate-x-1/2 rounded-full bg-[#A01016]" aria-hidden="true" />
     </span>
   );
 }
@@ -42,7 +42,7 @@ export function SidebarRail({ children }: { children: ReactNode }) {
   return (
     <aside
       data-conduit-sidebar
-      className="fixed inset-x-0 bottom-0 z-50 flex h-[70px] items-center border-t border-white/[0.06] bg-gradient-to-r from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 px-3 shadow-[0_-18px_44px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:static sm:h-auto sm:w-[84px] sm:shrink-0 sm:flex-col sm:overflow-visible sm:border-r sm:border-t-0 sm:border-white/[0.06] sm:bg-gradient-to-b sm:px-0 sm:shadow-none"
+      className="fixed inset-x-0 bottom-0 z-50 flex h-[70px] items-center border-t border-white/[0.06] bg-gradient-to-r from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 px-3 backdrop-blur-2xl sm:static sm:h-auto sm:w-[84px] sm:shrink-0 sm:flex-col sm:overflow-visible sm:border-r sm:border-t-0 sm:border-white/[0.06] sm:bg-gradient-to-b sm:px-0"
     >
       {children}
     </aside>
@@ -51,24 +51,6 @@ export function SidebarRail({ children }: { children: ReactNode }) {
 
 export function SidebarLogo() {
   const rootRef = useRef<HTMLAnchorElement>(null);
-  const glowRef = useRef<HTMLSpanElement>(null);
-
-  useGSAP(
-    () => {
-      if (!glowRef.current || prefersReducedMotion()) return;
-
-      // Animation intent: a slow breathing glow gives the rail a quiet anchor without turning the logo into a distraction.
-      gsap.to(glowRef.current, {
-        opacity: 0.58,
-        scale: 1.14,
-        duration: 2,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-      });
-    },
-    { scope: rootRef },
-  );
 
   const animateLogo = useCallback((hovered: boolean) => {
     if (!rootRef.current) return;
@@ -80,14 +62,6 @@ export function SidebarLogo() {
       duration,
       ease: 'power2.out',
     });
-    if (glowRef.current) {
-      gsap.to(glowRef.current, {
-        opacity: hovered ? 0.72 : 0.34,
-        scale: hovered ? 1.18 : 1,
-        duration,
-        ease: 'power2.out',
-      });
-    }
   }, []);
 
   return (
@@ -99,9 +73,8 @@ export function SidebarLogo() {
       onMouseLeave={() => animateLogo(false)}
       onFocus={() => animateLogo(true)}
       onBlur={() => animateLogo(false)}
-      className="relative hidden h-[112px] w-full shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-white/15 sm:flex"
+      className="group/logo relative hidden h-[112px] w-full shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-white/15 sm:flex"
     >
-      <span ref={glowRef} className="absolute h-12 w-12 rounded-[20px] bg-[#A01016]/20 opacity-30 blur-xl" aria-hidden="true" />
       <ConduitMark />
     </Link>
   );
@@ -139,6 +112,14 @@ export function NavIcon({ href, label, caption, icon: Icon, active, itemRef }: N
     () => {
       gsap.set(tooltipRef.current, { opacity: 0, x: -6 });
       gsap.set(iconRef.current, { color: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.38)' });
+
+      if (active && !prefersReducedMotion()) {
+        gsap.fromTo(
+          iconRef.current,
+          { scale: 0.84, rotate: -7 },
+          { scale: 1, rotate: 0, duration: 0.26, ease: 'back.out(2.2)', overwrite: 'auto' },
+        );
+      }
     },
     { scope: buttonRef, dependencies: [active] },
   );
@@ -146,13 +127,12 @@ export function NavIcon({ href, label, caption, icon: Icon, active, itemRef }: N
   const animateHover = contextSafe((hovered: boolean) => {
     const duration = prefersReducedMotion() ? 0 : hovered ? 0.2 : 0.16;
 
-    // Animation intent: hover adds a small weighted nudge, like pressing against an instrument panel rail.
+    // Animation intent: hover compresses inward and picks up a red surface tint without fighting the full-width active rail.
     gsap.to(buttonRef.current, {
-      x: hovered ? 3 : 0,
+      x: hovered ? 2 : 0,
       y: hovered ? -1 : 0,
-      scale: hovered ? 1.075 : 1,
-      backgroundColor: hovered ? 'rgba(255,255,255,0.065)' : 'rgba(255,255,255,0)',
-      boxShadow: hovered ? '0 14px 28px rgba(0,0,0,0.32), inset 0 1px rgba(255,255,255,0.08)' : '0 0 0 rgba(0,0,0,0)',
+      scale: hovered ? 0.965 : 1,
+      backgroundColor: hovered ? 'rgba(160,16,22,0.075)' : 'rgba(255,255,255,0)',
       duration,
       ease: 'power2.out',
     });
@@ -194,7 +174,7 @@ export function NavIcon({ href, label, caption, icon: Icon, active, itemRef }: N
 
       <span
         ref={tooltipRef}
-        className="pointer-events-none absolute bottom-full left-1/2 mb-3 min-w-[112px] -translate-x-1/2 whitespace-nowrap rounded-[12px] bg-black/90 px-3 py-2 text-left font-mono text-[9px] uppercase tracking-[0.16em] text-white/72 opacity-0 shadow-[0_12px_28px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:bottom-auto sm:left-full sm:top-1/2 sm:mb-0 sm:ml-3 sm:-translate-x-0 sm:-translate-y-1/2"
+        className="pointer-events-none absolute bottom-full left-1/2 mb-3 min-w-[112px] -translate-x-1/2 whitespace-nowrap rounded-[12px] border border-white/[0.07] bg-black/90 px-3 py-2 text-left font-mono text-[9px] uppercase tracking-[0.16em] text-white/72 opacity-0 backdrop-blur-xl sm:bottom-auto sm:left-full sm:top-1/2 sm:mb-0 sm:ml-3 sm:-translate-x-0 sm:-translate-y-1/2"
       >
         <span className="block text-[8px] text-white/34">Surface {caption}</span>
         <span className="mt-0.5 block text-white/82">{label}</span>
@@ -241,13 +221,13 @@ export function StatusBadge({ state = 'live' }: StatusBadgeProps) {
 
   return (
     <div className="hidden w-full shrink-0 px-2 pb-5 pt-3 sm:block">
-      <div className="mx-auto flex w-[58px] flex-col items-center gap-1.5 rounded-[18px] bg-white/[0.035] py-3 font-mono uppercase tracking-[0.14em] text-white/40 shadow-[inset_0_1px_rgba(255,255,255,0.035)]">
-        <span className="text-[8px]">SDK</span>
+      <div className="mx-auto grid w-[58px] place-items-center gap-1.5 rounded-[17px] border border-white/[0.055] bg-white/[0.025] px-2 py-2.5 font-mono uppercase tracking-[0.16em] text-white/38">
+        <span className="text-[6.5px] leading-none">SDK</span>
         <span className="relative grid h-2.5 w-2.5 place-items-center" aria-hidden="true">
-          <span ref={pulseRef} className={cx('absolute h-2.5 w-2.5 rounded-full opacity-30', tone)} />
+          <span ref={pulseRef} className={cx('absolute h-2.5 w-2.5 rounded-full opacity-22', tone)} />
           <span ref={dotRef} className={cx('relative h-1.5 w-1.5 rounded-full', tone)} />
         </span>
-        <span className="text-[7px]">{copy}</span>
+        <span className="text-[6px] leading-none">{copy}</span>
       </div>
     </div>
   );
@@ -277,16 +257,21 @@ export function MachineSidebar() {
 
     const navRect = nav.getBoundingClientRect();
     const itemRect = activeItem.getBoundingClientRect();
+    const isDesktopRail = window.matchMedia('(min-width: 640px)').matches;
+    const targetX = itemRect.left - navRect.left + (isDesktopRail ? -18 : 0);
+    const targetY = itemRect.top - navRect.top + (isDesktopRail ? -8 : 0);
+    const targetWidth = isDesktopRail ? 84 : itemRect.width;
+    const targetHeight = isDesktopRail ? 64 : itemRect.height;
     const duration = instant || prefersReducedMotion() ? 0 : 0.35;
 
     gsap.killTweensOf(indicator);
 
     if (duration === 0) {
       gsap.set(indicator, {
-        x: itemRect.left - navRect.left,
-        y: itemRect.top - navRect.top,
-        width: itemRect.width,
-        height: itemRect.height,
+        x: targetX,
+        y: targetY,
+        width: targetWidth,
+        height: targetHeight,
         opacity: 1,
         scaleX: 1,
         scaleY: 1,
@@ -299,10 +284,10 @@ export function MachineSidebar() {
       .timeline({ defaults: { ease: 'power3.inOut' } })
       .to(indicator, { scaleX: 0.88, scaleY: 0.96, duration: 0.09, transformOrigin: 'center center' })
       .to(indicator, {
-        x: itemRect.left - navRect.left,
-        y: itemRect.top - navRect.top,
-        width: itemRect.width,
-        height: itemRect.height,
+        x: targetX,
+        y: targetY,
+        width: targetWidth,
+        height: targetHeight,
         opacity: 1,
         scaleX: 1,
         scaleY: 1,
@@ -344,16 +329,22 @@ export function MachineSidebar() {
           <span
             ref={indicatorRef}
             className={cx(
-              'pointer-events-none absolute left-0 top-0 z-10 overflow-visible rounded-[20px] border border-white/[0.08] opacity-0 [background:linear-gradient(135deg,rgba(255,255,255,0.115),rgba(255,255,255,0.035))] shadow-[0_18px_36px_rgba(0,0,0,0.44),0_0_34px_rgba(160,16,22,0.18),inset_0_1px_rgba(255,255,255,0.14)]',
+              'pointer-events-none absolute left-0 top-0 z-10 overflow-hidden rounded-[2px] border border-[#A01016]/90 bg-[#A01016]/[0.035] opacity-0',
               activeHref ? 'block' : 'hidden',
             )}
             aria-hidden="true"
           >
-            <span className="absolute inset-[1px] rounded-[19px] bg-black/[0.45]" />
-            <span className="absolute inset-0 rounded-[20px] bg-[radial-gradient(circle_at_72%_50%,rgba(160,16,22,0.24),transparent_58%)]" />
-            <span className="absolute bottom-[-8px] left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-[#A01016] shadow-[0_0_18px_rgba(160,16,22,0.62)] sm:bottom-auto sm:left-auto sm:right-[-8px] sm:top-1/2 sm:h-8 sm:w-[3px] sm:-translate-y-1/2 sm:translate-x-0" />
-            <span className="absolute left-3 right-3 top-1 h-px rounded-full bg-white/[0.18]" />
-            <span className="absolute -inset-1 rounded-[22px] bg-[#A01016]/10 blur-lg" />
+            <span className="absolute inset-y-0 left-0 w-[64px] bg-[radial-gradient(circle_at_center,rgba(160,16,22,0.2),transparent_68%)]" />
+            <span className="absolute inset-x-0 top-0 h-px bg-[#A01016]/80" />
+            <span className="absolute inset-x-0 bottom-0 h-px bg-[#A01016]/65" />
+            <span className="absolute bottom-0 left-0 top-0 w-px bg-[#A01016]/90" />
+            <span className="absolute bottom-0 right-0 top-0 w-px bg-[#A01016]/90" />
+            <span className="absolute bottom-[-2px] left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-[#A01016] sm:bottom-auto sm:left-auto sm:right-[27px] sm:top-1/2 sm:h-1.5 sm:w-1.5 sm:-translate-y-1/2 sm:translate-x-0 sm:rounded-full" />
+            <span className="absolute right-2 top-1/2 hidden -translate-y-1/2 flex-col gap-1 sm:flex">
+              <span className="h-px w-3 bg-[#A01016]/65" />
+              <span className="h-px w-2 bg-[#A01016]/40" />
+              <span className="h-px w-3 bg-[#A01016]/55" />
+            </span>
           </span>
 
           {NAV_ITEMS.slice(0, 4).map((item, index) => (

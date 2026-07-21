@@ -2,9 +2,7 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
   type PointerEvent,
@@ -32,21 +30,21 @@ type PermissionInspectorProps = {
 };
 
 const inspectorShellClass = [
-  'relative flex w-full shrink-0 flex-col overflow-hidden border-t border-white/[0.06] bg-black/[0.38] text-white backdrop-blur-2xl xl:my-3 xl:mr-3 xl:w-[var(--inspector-width)] xl:rounded-r-[26px] xl:border xl:border-white/[0.08]',
-  'backdrop-saturate-[130%] shadow-[0_20px_48px_rgba(0,0,0,0.28),inset_1px_0_rgba(255,255,255,0.04)]',
+  'relative flex w-full shrink-0 flex-col overflow-hidden border-t border-white/[0.06] bg-[#050505]/78 text-white backdrop-blur-2xl xl:my-3 xl:mr-3 xl:w-[var(--inspector-width)] xl:rounded-r-[24px] xl:border xl:border-white/[0.08]',
+  'backdrop-saturate-[125%]',
 ].join(' ');
 
 const transparentLayerClass = 'bg-transparent';
 
 const glassPanelClass = [
-  'flex flex-col border-t border-white/[0.07] bg-transparent p-4 sm:p-5',
+  'flex flex-col border-t border-white/[0.07] bg-transparent px-4 py-3.5 sm:px-5',
 ].join(' ');
 
 const glassInnerClass = [
-  'rounded-[16px] bg-white/[0.035] p-2',
+  'rounded-[14px] border border-white/[0.055] bg-white/[0.025] p-2',
 ].join(' ');
 
-const glassRowClass = 'flex items-center justify-between rounded-[12px] bg-white/[0.025] transition-colors hover:bg-white/[0.05]';
+const glassRowClass = 'flex items-center justify-between rounded-[11px] bg-white/[0.02] transition-colors hover:bg-white/[0.045]';
 
 
 function cx(...classes: string[]) {
@@ -66,36 +64,39 @@ export function PermissionInspector(props: PermissionInspectorProps) {
     >
       <button
         type="button"
-        aria-label="Resize access summary"
-        title="Drag to resize"
-        onPointerDown={onResizeStart}
-        className="inspector-resize-handle group absolute inset-y-0 -left-3 z-30 hidden w-6 cursor-col-resize xl:flex"
+        aria-label="Access summary divider"
+        title="Access summary"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event);
+        }}
+        className="inspector-resize-handle group absolute inset-y-0 -left-3 z-30 hidden w-6 !cursor-default xl:flex"
       >
-        <span className="inspector-resize-track !bg-black/30 backdrop-blur-xl [.telemetry-app_&&]:!border-white/10 [.telemetry-app_&&]:!bg-black/30">
+        <span className="inspector-resize-track !bg-black/30 !text-white/32 backdrop-blur-xl group-hover:!border-white/10 group-hover:!bg-black/30 group-hover:!text-white/40 [.telemetry-app_&&]:!border-white/10 [.telemetry-app_&&]:!bg-black/30">
           <DotsSixVertical className="h-3.5 w-3.5" weight="bold" />
-          <small>RESIZE</small>
+          <small>PANEL</small>
         </span>
       </button>
 
-      <header className={cx('flex min-h-[92px] items-center justify-between border-b border-white/[0.07] px-5 py-4 bg-transparent', transparentLayerClass)}>
-        <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white/[0.045] text-white/70"><EntityIcon weight="duotone" className="h-6 w-6" /></span>
+      <header className={cx('flex min-h-[78px] items-center justify-between border-b border-white/[0.07] bg-transparent px-4 py-3.5 sm:px-5', transparentLayerClass)}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.055] bg-white/[0.035] text-white/70"><EntityIcon weight="duotone" className="h-5 w-5" /></span>
           <div>
             <p className="font-mono text-[8px] uppercase tracking-widest text-white/40">Access summary</p>
-            <h2 className="mt-1 font-sans text-xl font-semibold text-white/90">{entity.label}</h2>
+            <h2 className="mt-1 font-sans text-[17px] font-semibold tracking-[-0.03em] text-white/90">{entity.label}</h2>
           </div>
         </div>
       </header>
 
-      <div className={cx('min-h-0 flex-1 overflow-y-auto bg-transparent p-3 sm:p-4', transparentLayerClass)}>
-        <section data-summary-section className="grid grid-cols-2 border-b border-white/[0.07]">
-          <div className="flex flex-col justify-center bg-transparent p-5">
+      <div className={cx('access-scroll min-h-0 flex-1 overflow-y-auto bg-transparent p-3', transparentLayerClass)}>
+        <section data-summary-section className="grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/[0.06] bg-white/[0.018]">
+          <div className="flex flex-col justify-center border-r border-white/[0.06] bg-transparent p-4">
             <span className="font-mono text-[8px] uppercase tracking-widest text-white/40">Allowed permissions</span>
-            <strong data-summary-value className="mt-3 font-sans text-3xl font-semibold text-white/90">{grants.length}<small className="ml-1 font-mono text-xs text-white/30">/18</small></strong>
+            <strong data-summary-value className="mt-2 font-sans text-[28px] font-semibold leading-none text-white/90">{grants.length}<small className="ml-1 font-mono text-[11px] text-white/30">/18</small></strong>
           </div>
-          <div className="flex flex-col justify-center bg-transparent p-5">
+          <div className="flex flex-col justify-center bg-transparent p-4">
             <span className="font-mono text-[8px] uppercase tracking-widest text-white/40">Risk level</span>
-            <strong data-summary-value className="mt-3 font-sans text-3xl font-semibold" style={{ color: risk.color }}>{risk.level}</strong>
+            <strong data-summary-value className="mt-2 font-sans text-[28px] font-semibold leading-none" style={{ color: risk.color }}>{risk.level}</strong>
           </div>
         </section>
 
@@ -104,7 +105,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
             <h3 className="text-xs font-medium text-white/60">Effective SDK</h3>
             <span className="font-mono text-[8px] text-white/30">TypeScript</span>
           </header>
-          <pre className={cx('overflow-auto p-4 font-mono text-[11px] leading-relaxed text-white/60', glassInnerClass)} aria-label="Generated SDK policy preview">
+          <pre className={cx('overflow-auto p-3 font-mono text-[10px] leading-relaxed text-white/60', glassInnerClass)} aria-label="Generated SDK policy preview">
             <code>
               <span data-sdk-line><b className="text-white">const</b> sdk = conduit.policy({'{'}</span>
               <span data-sdk-line>  entity: <i className="text-red-400">&apos;{entity.id}&apos;</i>,</span>
@@ -127,8 +128,8 @@ export function PermissionInspector(props: PermissionInspectorProps) {
           <div className={cx('flex flex-col gap-1', glassInnerClass)}>
             {enabledEndpoints.length ? enabledEndpoints.map((endpoint) => (
               <div key={`${endpoint.method}-${endpoint.path}`} data-endpoint-scope={endpoint.scope} className={cx('px-3 py-2', glassRowClass)}>
-                <span className="font-mono text-[10px] text-white/50 bg-transparent">{endpoint.method}</span>
-                <code className="font-mono text-[11px] text-white/80">{endpoint.path}</code>
+                <span className="font-mono text-[9px] text-white/50 bg-transparent">{endpoint.method}</span>
+                <code className="font-mono text-[10px] text-white/80">{endpoint.path}</code>
               </div>
             )) : (
               <p className="p-3 text-center text-xs text-white/40">No API endpoints are currently available.</p>
@@ -144,8 +145,8 @@ export function PermissionInspector(props: PermissionInspectorProps) {
             {SCOPE_GROUPS.map((group) => {
               const active = group.scopes.filter((scope) => grants.includes(scope.id)).length;
               return (
-                <div key={group.id} className="flex items-center justify-between rounded-[12px] bg-white/[0.025] px-3 py-2.5">
-                  <span className="text-xs text-white/70">{group.label}</span>
+                <div key={group.id} className="flex items-center justify-between rounded-[11px] bg-white/[0.02] px-3 py-2">
+                  <span className="text-[11px] text-white/70">{group.label}</span>
                   <div className="mx-4 flex h-1 flex-1 overflow-hidden rounded-full bg-white/10"><i className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(active / group.scopes.length) * 100}%` }} /></div>
                   <strong className="font-mono text-[10px] text-white/60">{active}/{group.scopes.length}</strong>
                 </div>
@@ -198,39 +199,11 @@ function calculateRisk(grants: string[]) {
 }
 
 export function useInspectorResize() {
-  const [width, setWidth] = useState(400);
-  const frameRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const saved = Number(window.localStorage.getItem('conduit-inspector-width'));
-    if (Number.isFinite(saved) && saved >= 360 && saved <= 620) setWidth(saved);
-  }, []);
+  const [width] = useState(400);
 
   const startResize = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = width;
-
-    const move = (pointerEvent: globalThis.PointerEvent) => {
-      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = window.requestAnimationFrame(() => {
-        setWidth(Math.min(620, Math.max(360, startWidth - (pointerEvent.clientX - startX))));
-      });
-    };
-
-    const stop = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', stop);
-      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
-      setWidth((current) => {
-        window.localStorage.setItem('conduit-inspector-width', String(current));
-        return current;
-      });
-    };
-
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', stop, { once: true });
-  }, [width]);
+  }, []);
 
   return { width, startResize };
 }

@@ -12,7 +12,7 @@ export function DlqView() {
   const { data, isLoading, isError, error } = useQuery(sendsQueryOptions(DEFAULT_SEND_FILTERS));
 
   return (
-    <section className="flex flex-col gap-[18px]">
+    <section className="flex flex-col gap-4">
       <TelemetryPageHeader
         eyebrow="DLQ / RECOVERY"
         title="Delivery Recovery"

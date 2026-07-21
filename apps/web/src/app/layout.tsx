@@ -20,12 +20,15 @@ const jetBrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Conduit - Access Surface',
   description: 'Configure SDK permissions, teams, and API keys with a live effective-access preview.',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${jetBrainsMono.variable}`}>
-      <body>
+    <html lang="en" className={`${outfit.variable} ${jetBrainsMono.variable} h-dvh overflow-hidden bg-black`}>
+      <body className="h-dvh overflow-hidden bg-black">
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

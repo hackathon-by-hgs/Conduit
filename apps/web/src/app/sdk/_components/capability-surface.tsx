@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useGSAP } from '@gsap/react';
+import { gsap } from 'gsap';
 import {
   ArrowsClockwise,
   Broadcast,
@@ -12,11 +14,14 @@ import {
 } from '@phosphor-icons/react';
 import { SCOPE_GROUPS, type ScopeDefinition, type ScopeGroup } from './access-data';
 
+gsap.registerPlugin(useGSAP);
+
 type CapabilitySurfaceProps = {
   selectedId: string;
   focusedLabel: string;
   grants: string[];
   editing: boolean;
+  requestedOpenGroup?: string | null;
   onSelect: (capabilityId: string, scopeId: string) => void;
   onToggle: (scopeId: string) => void;
 };
@@ -67,8 +72,51 @@ const humanizeScopeId = (scopeId: string) =>
     .join(' ');
 
 export function CapabilitySurface(props: CapabilitySurfaceProps) {
-  const { selectedId, focusedLabel, grants, editing, onSelect, onToggle } = props;
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  const { selectedId, focusedLabel, grants, editing, requestedOpenGroup, onSelect, onToggle } = props;
+  const rootRef = useRef<HTMLElement>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(SCOPE_GROUPS.map((group) => group.id)));
+  const collapsedSignature = [...collapsedGroups].sort().join('|');
+
+  useEffect(() => {
+    if (!requestedOpenGroup) return;
+
+    setCollapsedGroups((current) => {
+      if (!current.has(requestedOpenGroup)) return current;
+      const next = new Set(current);
+      next.delete(requestedOpenGroup);
+      return next;
+    });
+  }, [requestedOpenGroup]);
+
+  useGSAP(
+    () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const headers = gsap.utils.toArray<HTMLElement>('[data-policy-header]');
+      if (!headers.length) return;
+
+      gsap.fromTo(
+        headers,
+        { autoAlpha: 0.84, x: -8 },
+        { autoAlpha: 1, x: 0, duration: 0.22, stagger: 0.035, ease: 'power2.out' },
+      );
+    },
+    { scope: rootRef },
+  );
+
+  useGSAP(
+    () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const rows = gsap.utils.toArray<HTMLElement>('[data-permission-row]');
+      if (!rows.length) return;
+
+      gsap.fromTo(
+        rows,
+        { autoAlpha: 0.82, y: 6 },
+        { autoAlpha: 1, y: 0, duration: 0.18, ease: 'power2.out', overwrite: 'auto' },
+      );
+    },
+    { scope: rootRef, dependencies: [collapsedSignature] },
+  );
 
   const handleAccessChange = (groupId: string, scopeId: string, nextGranted: boolean, currentlyGranted: boolean) => {
     onSelect(groupId, scopeId);
@@ -77,11 +125,43 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
 
   const toggleGroup = (groupId: string, scopeId: string) => {
     onSelect(groupId, scopeId);
-    setCollapsedGroups((current) => {
-      const next = new Set(current);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
+
+    const currentlyCollapsed = collapsedGroups.has(groupId);
+
+    if (currentlyCollapsed) {
+      setCollapsedGroups((current) => {
+        const next = new Set(current);
+        next.delete(groupId);
+        return next;
+      });
+      return;
+    }
+
+    const rows = rootRef.current
+      ? gsap.utils.toArray<HTMLElement>(`[data-policy-group="${groupId}"] [data-permission-row]`, rootRef.current)
+      : [];
+
+    const closeGroup = () => {
+      setCollapsedGroups((current) => {
+        const next = new Set(current);
+        next.add(groupId);
+        return next;
+      });
+    };
+
+    if (!rows.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      closeGroup();
+      return;
+    }
+
+    gsap.to(rows, {
+      autoAlpha: 0,
+      y: -8,
+      duration: 0.16,
+      stagger: 0.018,
+      ease: 'power2.in',
+      overwrite: 'auto',
+      onComplete: closeGroup,
     });
   };
 
@@ -99,14 +179,14 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
         data-permission-state
         role="group"
         aria-label={`Permission state for ${copy.title}`}
-        className="relative grid h-10 w-[132px] grid-cols-2 items-center overflow-hidden rounded-full bg-black/55 p-1 shadow-[inset_0_1px_rgba(255,255,255,0.06),0_10px_22px_rgba(0,0,0,0.22)]"
+        className="relative grid h-8 w-[116px] grid-cols-2 items-center overflow-hidden rounded-full bg-black/58 p-0.5"
       >
         <span
           data-permission-thumb
           aria-hidden="true"
           className={[
-            'pointer-events-none absolute bottom-1 left-1 top-1 z-0 w-[calc(50%-4px)] rounded-full transition-[background-color,transform] duration-[260ms] ease-[cubic-bezier(.23,1,.32,1)]',
-            granted ? 'translate-x-0 bg-[#A01016] shadow-[0_8px_18px_rgba(160,16,22,0.28)]' : 'translate-x-[calc(100%+4px)] bg-white/[0.13]',
+            'pointer-events-none absolute bottom-0.5 left-0.5 top-0.5 z-0 w-[calc(50%-2px)] rounded-full transition-[background-color,transform] duration-300 ease-[cubic-bezier(.22,1,.36,1)]',
+            granted ? 'translate-x-0 bg-[#A01016]' : 'translate-x-[calc(100%+2px)] bg-white/[0.13]',
           ].join(' ')}
         />
 
@@ -115,7 +195,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
           aria-pressed={granted}
           onClick={() => handleAccessChange(group.id, scope.id, true, granted)}
           className={[
-            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[8px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A01016]/45',
+            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[7px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A01016]/45',
             granted ? 'text-white' : 'text-white/30 hover:text-white/60',
           ].join(' ')}
         >
@@ -127,7 +207,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
           aria-pressed={!granted}
           onClick={() => handleAccessChange(group.id, scope.id, false, granted)}
           className={[
-            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[8px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/14',
+            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[7px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/14',
             !granted ? 'text-white' : 'text-white/30 hover:text-white/60',
           ].join(' ')}
         >
@@ -145,19 +225,31 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
     const orderedScopes = group.scopes;
 
     return (
-      <tbody key={group.id} data-policy-module className="border-t border-white/[0.08] first:border-t-0">
+      <tbody key={group.id} data-policy-module data-policy-group={group.id} className="border-t border-white/[0.08] first:border-t-0">
         <tr>
-          <th scope="rowgroup" colSpan={4} className="px-5 pb-3 pt-6 text-left">
+          <th scope="rowgroup" colSpan={4} data-policy-header className="p-0 text-left">
             <button
               type="button"
               aria-expanded={!collapsed}
               onClick={() => toggleGroup(group.id, orderedScopes[0].id)}
               className={[
-                'group/capability flex w-full items-center gap-3 rounded-[18px] bg-transparent py-2 pr-3 text-left transition-[background-color,transform] duration-180 hover:-translate-y-0.5 hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/12',
-                selected ? 'text-white' : 'text-white/80',
+                'group/capability relative flex min-h-[92px] w-full items-center gap-4 px-6 py-4 text-left transition-[background-color,color] duration-220 ease-[cubic-bezier(.23,1,.32,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/12',
+                selected
+                  ? 'bg-white/[0.032] text-white'
+                  : 'bg-transparent text-white/76 hover:bg-white/[0.024] hover:text-white',
               ].join(' ')}
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-white/[0.04] text-white/56 transition-colors group-hover/capability:text-white/78">
+              <span
+                className={[
+                  'absolute bottom-5 left-0 top-5 w-0.5 rounded-r-full bg-[#A01016] transition-[opacity,transform] duration-200',
+                  selected ? 'scale-y-100 opacity-100' : 'scale-y-50 opacity-0 group-hover/capability:scale-y-100 group-hover/capability:opacity-100',
+                ].join(' ')}
+                aria-hidden="true"
+              />
+              <span className={[
+                'grid h-11 w-11 shrink-0 place-items-center rounded-[16px] transition-[background-color,color,transform] duration-180 group-hover/capability:translate-x-1',
+                selected ? 'bg-[#A01016]/14 text-white/88' : 'bg-white/[0.04] text-white/52 group-hover/capability:bg-white/[0.06] group-hover/capability:text-white/78',
+              ].join(' ')}>
                 <Icon weight="regular" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
@@ -178,7 +270,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
               </span>
               <CaretDown
                 className={[
-                  'h-4 w-4 shrink-0 text-white/35 transition-transform duration-200',
+                  'h-4 w-4 shrink-0 text-white/35 transition-[transform,color] duration-200 group-hover/capability:text-white/58',
                   collapsed ? '-rotate-90' : 'rotate-0',
                 ].join(' ')}
                 weight="bold"
@@ -226,7 +318,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
                 <p className="text-[12px] leading-relaxed text-white/42">{copy.summary}</p>
               </td>
 
-              <td className="w-[168px] px-3 py-3.5 align-middle">
+              <td className="w-[146px] px-3 py-3.5 align-middle">
                 {renderAccessControl(group, scope, granted)}
               </td>
             </tr>
@@ -237,7 +329,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
   };
 
   return (
-    <section className="min-h-full overflow-hidden bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+    <section ref={rootRef} className="min-h-full overflow-visible bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
       <div className="flex min-h-full flex-col">
         <header className="flex flex-col gap-5 border-b border-white/[0.06] bg-transparent px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
@@ -280,18 +372,18 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
           <div className="w-full min-w-[760px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
             <table className="w-full table-fixed border-collapse">
               <caption className="sr-only">SDK capability permission table</caption>
-              <thead className="sticky top-0 z-30 bg-gradient-to-r from-[#080808] via-[#0b0b0b] to-black shadow-[0_1px_rgba(255,255,255,0.08)]">
+              <thead className="sticky top-0 z-30 bg-gradient-to-r from-[#080808] via-[#0b0b0b] to-black">
                 <tr className="border-b border-white/[0.08] font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/42">
-                  <th scope="col" className="w-[230px] px-5 py-3 text-left">
+                  <th scope="col" className="sticky top-0 z-30 w-[230px] bg-[#090909] px-5 py-3 text-left">
                     Permission
                   </th>
-                  <th scope="col" className="w-[150px] px-4 py-3 text-left">
+                  <th scope="col" className="sticky top-0 z-30 w-[150px] bg-[#090909] px-4 py-3 text-left">
                     SDK ID
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  <th scope="col" className="sticky top-0 z-30 bg-[#090909] px-4 py-3 text-left">
                     Summary
                   </th>
-                  <th scope="col" className="w-[168px] px-3 py-3 text-left">
+                  <th scope="col" className="sticky top-0 z-30 w-[146px] bg-[#090909] px-3 py-3 text-left">
                     Access
                   </th>
                 </tr>

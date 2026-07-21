@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { GAP_TYPE, type GapDto, type GapType } from '@conduit/contracts';
+import { TelemetryPageHeader } from '@/app/_components/telemetry-page-header';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
@@ -49,8 +50,16 @@ export function ReconciliationView() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">Reconciliation</h1>
+      <TelemetryPageHeader
+        eyebrow="REC / AUDIT"
+        title="Reconciliation"
+        description="Inspect missing, orphaned, duplicated, and stuck delivery records."
+        status="Gap monitor"
+        metric={{ label: 'Open gaps', value: data.gaps.length }}
+      />
+
+      <div data-route-card className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-4">
+        <h2 className="font-sans text-[17px] font-semibold tracking-[-0.03em] text-white">Gap health</h2>
         <HealthStrip report={data} />
       </div>
 

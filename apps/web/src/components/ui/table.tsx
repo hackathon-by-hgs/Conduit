@@ -2,14 +2,14 @@ import type { ReactNode } from 'react';
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-[#262626] bg-[#0c0c0c]">
+    <div data-route-table className="overflow-hidden rounded-[22px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
       {/* Rail header */}
       <div
-        className="flex min-h-[46px] items-center gap-[14px] border-b border-[#262626] px-5 font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]"
+        className="flex min-h-[40px] items-center gap-3 border-b border-white/[0.07] px-4 font-mono text-[8px] uppercase tracking-[0.16em] text-white/34"
         aria-hidden="true"
       >
         <span>LIVE REGISTER</span>
-        <i className="h-px flex-1 bg-[#262626]" />
+        <i className="h-px flex-1 bg-white/[0.07]" />
         <b className="font-semibold text-[#a01016]">CONDUIT / IO</b>
       </div>
       <div className="overflow-x-auto">
@@ -21,12 +21,12 @@ export function Table({ children }: { children: ReactNode }) {
 
 export function THead({ columns }: { columns: string[] }) {
   return (
-    <thead className="bg-[#111]">
+    <thead className="bg-white/[0.025]">
       <tr>
         {columns.map((column) => (
           <th
             key={column}
-            className="px-5 py-[15px] text-left font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-[#666]"
+            className="px-4 py-3 text-left font-mono text-[8px] font-medium uppercase tracking-[0.14em] text-white/34"
           >
             {column}
           </th>
@@ -38,12 +38,12 @@ export function THead({ columns }: { columns: string[] }) {
 
 export function TRow({ children }: { children: ReactNode }) {
   return (
-    <tr className="border-t border-[#262626] text-[#a3a3a3] transition-colors duration-[160ms] ease-linear hover:bg-[#161616] hover:text-[#f5f5f5]">
+    <tr className="border-t border-white/[0.065] text-white/58 transition-colors duration-[160ms] ease-linear hover:bg-white/[0.035] hover:text-[#f5f5f5]">
       {children}
     </tr>
   );
 }
 
 export function TCell({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-5 py-[17px] align-middle ${className}`}>{children}</td>;
+  return <td className={`px-4 py-3.5 align-middle ${className}`}>{children}</td>;
 }

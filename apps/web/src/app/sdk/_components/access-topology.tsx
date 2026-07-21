@@ -2,8 +2,8 @@
 
 import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
-import { Graph, Key, UsersThree } from '@phosphor-icons/react';
 import { gsap } from 'gsap';
+import { Graph, Key, UsersThree } from '@phosphor-icons/react';
 import { SCOPE_GROUPS, type AccessEntity } from './access-data';
 import { ENDPOINTS } from './control-data';
 
@@ -40,49 +40,38 @@ function frameStyle(frame: { x: number; y: number; width: number; height: number
 function connectionClass(active: boolean, selected: boolean) {
   return [
     'fill-none transition-[stroke,opacity] duration-200 [stroke-linecap:round] [stroke-width:2] [vector-effect:non-scaling-stroke]',
-    selected ? 'stroke-[#A01016]/80 [stroke-dasharray:8_8]' : active ? 'stroke-[#A01016]/45' : 'stroke-white/10',
+    selected ? 'stroke-[#A01016]/85 [stroke-dasharray:9_10]' : active ? 'stroke-[#A01016]/50 [stroke-dasharray:7_12]' : 'stroke-white/10',
   ].join(' ');
 }
 
 export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: AccessTopologyProps) {
   const rootRef = useRef<HTMLElement>(null);
   const activeScopes = new Set(grants);
-  const grantsKey = grants.join('|');
   const activeEndpointCount = ENDPOINTS.filter((endpoint) => activeScopes.has(endpoint.scope)).length;
   const groupStates = SCOPE_GROUPS.map((group, index) => ({
     ...group,
     top: GROUP_TOPS[index],
     activeCount: group.scopes.filter((scope) => activeScopes.has(scope.id)).length,
   }));
+  const grantSignature = grants.slice().sort().join('|');
 
   useGSAP(
     () => {
-      const paths = gsap.utils.toArray<SVGPathElement>('[data-topology-path]');
+      const movingPaths = gsap.utils.toArray<SVGPathElement>('[data-flow="moving"]');
+      if (!movingPaths.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        gsap.set(paths, { clearProps: 'strokeDasharray,strokeDashoffset,opacity' });
-        return;
-      }
-
-      paths.forEach((path, index) => {
-        const length = path.getTotalLength();
-
-        // Animation intent: redraw only the tree connections so topology feels alive without reintroducing node stagger/scroll jank.
-        gsap.fromTo(
-          path,
-          { strokeDasharray: length, strokeDashoffset: length, opacity: 0.28 },
-          {
-            strokeDashoffset: 0,
-            opacity: 1,
-            duration: 0.68,
-            delay: index * 0.018,
-            ease: 'power2.inOut',
-            onComplete: () => gsap.set(path, { clearProps: 'strokeDasharray,strokeDashoffset' }),
-          },
-        );
+      movingPaths.forEach((path) => {
+        gsap.killTweensOf(path);
+        gsap.set(path, { strokeDashoffset: 0 });
+        gsap.to(path, {
+          strokeDashoffset: -42,
+          duration: path.dataset.selected === 'true' ? 0.85 : 1.35,
+          repeat: -1,
+          ease: 'none',
+        });
       });
     },
-    { scope: rootRef, dependencies: [entity.id, selectedGroup, grantsKey] },
+    { scope: rootRef, dependencies: [grantSignature, selectedGroup] },
   );
 
   return (
@@ -116,6 +105,8 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 <path
                   key={`entity-${group.id}`}
                   data-topology-path
+                  data-flow={isActive || selectedGroup === group.id ? 'moving' : 'idle'}
+                  data-selected={selectedGroup === group.id ? 'true' : 'false'}
                   className={connectionClass(isActive, selectedGroup === group.id)}
                   d={`M ${ENTITY.x + ENTITY.width} ${ENTITY.y + ENTITY.height / 2} C ${ENTITY.x + ENTITY.width + 74} ${ENTITY.y + ENTITY.height / 2}, ${GROUP.x - 74} ${targetY}, ${GROUP.x} ${targetY}`}
                 />
@@ -132,6 +123,8 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 <path
                   key={`${endpoint.method}-${endpoint.path}`}
                   data-topology-path
+                  data-flow={isActive || selectedGroup === groupId ? 'moving' : 'idle'}
+                  data-selected={selectedGroup === groupId ? 'true' : 'false'}
                   className={connectionClass(isActive, selectedGroup === groupId)}
                   d={`M ${GROUP.x + GROUP.width} ${sourceY} C ${GROUP.x + GROUP.width + 88} ${sourceY}, ${ENDPOINT.x - 88} ${targetY}, ${ENDPOINT.x} ${targetY}`}
                 />
@@ -140,7 +133,7 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
           </svg>
 
           <div
-            className="absolute z-[3] flex flex-col justify-center rounded-[18px] !bg-[#A01016] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.32)]"
+            className="absolute z-[3] flex flex-col justify-center rounded-[18px] !bg-[#95040956] p-4 text-white border !border-[#A01016]/40 backdrop-blur-[3px] transition-[background-color] duration-200"
             style={frameStyle(ENTITY)}
           >
             <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/70">Simulating</span>
@@ -161,12 +154,12 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 onClick={() => onOpenGroup(group.id)}
                 className={[
                   'absolute z-[3] grid items-center gap-3 overflow-hidden rounded-[18px] border border-transparent px-[15px] py-[11px] text-left transition-[background-color,border-color,color] duration-200',
-                  'hover:bg-black/55 hover:text-white',
+                  'hover:bg-black/55 hover:text-white !border-[#46030563]',
                   isSelected
-                    ? '!border-[#A01016] !bg-black/65 !text-white shadow-[0_16px_34px_rgba(0,0,0,0.34)]'
+                    ? '!border-[#A01016] !bg-[#2a0202c6] !text-white'
                     : isActive
-                      ? '!bg-black/45 !text-white/85'
-                      : '!bg-black/25 !text-white/45',
+                      ? 'bg-[#000000] !text-white/85'
+                      : '!bg-[#000000] !text-white/45',
                 ].join(' ')}
                 style={{
                   gridTemplateColumns: '28px 1fr',
@@ -197,7 +190,7 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 key={`${endpoint.method}-${endpoint.path}`}
                 className={[
                   'absolute z-[3] flex items-center justify-between rounded-[18px] border border-transparent px-[16px] transition-[background-color,border-color,color] duration-200',
-                  'hover:bg-black/55 hover:text-white',
+                  'hover:bg-black/55 hover:text-white !border-[#46030563]',
                   isAllowed
                     ? '!bg-black/45 !text-white/85'
                     : '!bg-black/25 !text-white/45',

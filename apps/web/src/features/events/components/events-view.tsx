@@ -12,7 +12,7 @@ export function EventsView() {
   const { data, isLoading, isError, error } = useQuery(eventsQueryOptions(filters));
 
   return (
-    <section className="flex flex-col gap-[18px]">
+    <section className="flex flex-col gap-4">
       <TelemetryPageHeader
         eyebrow="EVT / INGEST"
         title="Event Stream"
