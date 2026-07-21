@@ -8,6 +8,7 @@
     "prebuild": "pnpm --filter @conduit/contracts build",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
+    "pretypecheck": "pnpm --filter @conduit/contracts build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests"

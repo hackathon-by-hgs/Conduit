@@ -21,9 +21,11 @@ import { AUTH_HEADER, bearer } from '@conduit/contracts';
  * BUILD time, so a deploy that only sets them at runtime silently proxies to localhost and
  * every request 502s. The public var stays as a fallback for existing local `.env` files.
  */
+const DEFAULT_CONDUIT_API_URL = 'https://conduit-735w.onrender.com';
+
 function apiUrl(): string {
   const url =
-    process.env.CONDUIT_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    process.env.CONDUIT_API_URL || process.env.NEXT_PUBLIC_API_URL || DEFAULT_CONDUIT_API_URL;
   return url.replace(/\/+$/, '');
 }
 
