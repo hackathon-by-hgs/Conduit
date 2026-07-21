@@ -1,0 +1,1439 @@
+:root {
+  color-scheme: dark;
+  --color-bg: #070707;
+  --color-surface: #111111;
+  --color-border: #262626;
+  --color-muted: #a3a3a3;
+  --color-text: #f5f5f5;
+  --color-accent: #a01016;
+  --app-accent: #a01016;
+  --app-accent-soft: #d15a5f;
+  --app-canvas: #050505;
+  --app-shell: #070707;
+  --app-panel: #0c0c0c;
+  --app-panel-strong: #111111;
+  --app-ink: #f5f5f5;
+  --app-ink-muted: #a3a3a3;
+  --app-line: #262626;
+  --radius-shell: 28px;
+  --radius-panel: 24px;
+  --radius-control: 18px;
+}
+
+html,
+body {
+  background: #050505;
+  color: #f5f5f5;
+}
+
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: #a01016;
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 1px solid #a01016;
+  outline-offset: 3px;
+}
+
+.telemetry-app {
+  background-color: #050505;
+  background-image: url('/bg-main.jpg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  color: #f5f5f5;
+}
+
+.telemetry-app,
+.telemetry-app * {
+  scrollbar-color: #444 #0c0c0c;
+  scrollbar-width: thin;
+}
+
+.telemetry-app *::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.telemetry-app *::-webkit-scrollbar-track {
+  background: #0c0c0c;
+}
+
+.telemetry-app *::-webkit-scrollbar-thumb {
+  background: #444;
+  border: 2px solid #0c0c0c;
+  border-radius: 999px;
+}
+
+.telemetry-app *::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.telemetry-app .industrial-chassis {
+  background: #070707;
+  border: 1px solid #2e2e2e;
+  border-radius: var(--radius-shell);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015), 0 20px 60px rgba(0, 0, 0, 0.32);
+}
+
+.telemetry-app .frame-border-top,
+.telemetry-app .frame-border-right {
+  display: none;
+}
+
+.telemetry-app .machine-sidebar {
+  background: #0c0c0c;
+  border-color: #262626 !important;
+}
+
+.telemetry-app .machine-logo-dock {
+  border-color: #262626;
+}
+
+.telemetry-app .conduit-mark {
+  background: #f5f5f5;
+  border-radius: 16px;
+  clip-path: none;
+  color: #070707;
+}
+
+.telemetry-app .conduit-mark > span {
+  background: #a01016;
+  border-radius: 50%;
+}
+
+.telemetry-app .machine-nav-stack {
+  gap: 8px;
+}
+
+.telemetry-app .machine-nav-cell {
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: #666;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.telemetry-app .machine-nav-cell::before {
+  display: none;
+}
+
+.telemetry-app .machine-nav-cell:hover {
+  background: #161616;
+  border-color: #262626;
+  color: #f5f5f5;
+  transform: translateX(2px);
+}
+
+.telemetry-app .machine-nav-cell.is-active {
+  background: #161616;
+  border: 1px solid rgba(160, 16, 22, 0.72);
+  box-shadow: inset 3px 0 #a01016;
+  color: #f5f5f5;
+}
+
+.telemetry-app .machine-nav-cell.is-active svg {
+  color: #a01016;
+}
+
+.telemetry-app .nav-dock-notch {
+  display: none !important;
+}
+
+.telemetry-app .machine-terminal {
+  border-color: #262626;
+}
+
+.telemetry-app .machine-terminal > div {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 12px;
+  color: #a3a3a3;
+}
+
+.telemetry-app .mobile-shell-header {
+  background: #0c0c0c;
+  border-color: #262626;
+}
+
+
+/* ============================================================
+   All .telemetry-page-*, .telemetry-card, .telemetry-table-*,
+   .telemetry-state-*, .telemetry-stat-*, .telemetry-event-*,
+   .telemetry-send-*, .telemetry-delivery-* etc. have been
+   migrated to Tailwind utility classes in their respective
+   component files. Only SDK-scoped (.telemetry-app) overrides
+   that cannot be expressed inline remain below.
+   ============================================================ */
+
+
+
+
+/* SDK operating surface */
+.telemetry-app .scope-manager,
+.telemetry-app .scope-primary-pane,
+.telemetry-app .sdk-main-surface,
+.telemetry-app .control-workspace,
+.telemetry-app .scope-workspace-content {
+  background: #070707 !important;
+  color: #f5f5f5;
+}
+
+.telemetry-app .scope-primary-pane {
+  animation: none !important;
+}
+
+.telemetry-app .scope-primary-pane .command-chassis,
+.telemetry-app .scope-primary-pane .os-command-chassis {
+  background: #0c0c0c !important;
+  backdrop-filter: none;
+  border-color: #262626;
+}
+
+.telemetry-app .sdk-os-header {
+  min-height: 92px;
+  padding: 16px 22px;
+}
+
+.telemetry-app .os-product-heading > span,
+.telemetry-app .os-policy-readouts > span {
+  color: #666;
+}
+
+.telemetry-app .scope-primary-pane .os-product-heading h1 {
+  color: #f5f5f5 !important;
+  font-size: 21px !important;
+}
+
+.telemetry-app .os-capability-search,
+.telemetry-app .os-entity-control,
+.telemetry-app .os-notification-command {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 18px;
+}
+
+.telemetry-app .os-capability-search:focus-within,
+.telemetry-app .os-entity-control:focus-within,
+.telemetry-app .os-notification-command:hover {
+  background: #161616;
+  border-color: #a01016;
+  transform: none;
+}
+
+.telemetry-app .os-capability-search input,
+.telemetry-app .os-entity-control select {
+  color: #f5f5f5;
+}
+
+.telemetry-app .os-capability-search input::placeholder,
+.telemetry-app .os-entity-control > span,
+.telemetry-app .os-capability-search kbd {
+  color: #666;
+}
+
+.telemetry-app .os-entity-control option {
+  background: #111;
+  color: #f5f5f5;
+}
+
+.telemetry-app .os-policy-toolbar {
+  background: #0c0c0c;
+  border-color: #262626;
+}
+
+.telemetry-app .os-live-control {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 999px;
+  color: #666;
+}
+
+.telemetry-app .os-live-control.is-live {
+  border-color: rgba(160, 16, 22, 0.65);
+  color: #d15a5f;
+}
+
+.telemetry-app .scope-primary-pane .command-status-chip,
+.telemetry-app .scope-primary-pane .command-actions .command-button {
+  background: #111;
+  border: 1px solid #2e2e2e;
+  border-radius: 16px;
+}
+
+.telemetry-app .scope-primary-pane .command-actions .command-button:not(:disabled):hover {
+  background: #1e1e1e;
+  border-color: #a01016;
+}
+
+.telemetry-app .scope-primary-pane .command-actions .command-button.is-primary:not(:disabled) {
+  background: #a01016;
+  border-color: #a01016;
+}
+
+.telemetry-app .scope-primary-pane .command-button-icon {
+  background: #161616;
+  color: #a3a3a3;
+}
+
+.telemetry-app .scope-primary-pane .command-button.is-primary .command-button-icon {
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-navigation {
+  background: #0c0c0c;
+  border-color: #262626;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-tabs {
+  background: #111;
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-tabs button {
+  border-radius: 999px;
+  color: #666;
+  font-size: 12px;
+  min-height: 42px;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-tabs button:hover {
+  color: #f5f5f5;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-tabs button.is-active {
+  background: transparent !important;
+  color: #fff;
+}
+
+.telemetry-app .scope-primary-pane .scope-view-slider {
+  background: #a01016;
+  border-radius: 999px;
+}
+
+.telemetry-app .sdk-os-capability-surface {
+  padding: 24px;
+}
+
+.telemetry-app .sdk-os-capability-surface > div:first-child,
+.telemetry-app .simple-section-heading {
+  border-color: #262626;
+}
+
+.telemetry-app .sdk-os-capability-surface > div:first-child h2,
+.telemetry-app .scope-primary-pane .simple-section-heading h2 {
+  color: #f5f5f5;
+}
+
+.telemetry-app .sdk-os-capability-surface > div:first-child p,
+.telemetry-app .sdk-os-capability-surface > div:first-child > span:last-child,
+.telemetry-app .scope-primary-pane .simple-section-heading p,
+.telemetry-app .scope-primary-pane .simple-section-heading > span {
+  color: #666;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-surface {
+  background: #0c0c0c;
+  border: 1px solid #262626;
+  border-radius: 24px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-surface-rail {
+  background: #111;
+  border: 0;
+  border-bottom: 1px solid #262626;
+  border-radius: 0;
+  color: #666;
+  min-height: 42px;
+  position: relative;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-surface-grid {
+  background: #262626;
+  gap: 1px;
+  padding: 1px 0 0;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-module {
+  backdrop-filter: none;
+  background: #0c0c0c;
+  clip-path: none;
+  min-height: 242px;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-module:hover {
+  background: #111;
+  transform: translateY(-2px);
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-module.is-selected {
+  background: #161616;
+  box-shadow: inset 0 3px #a01016;
+  filter: none;
+}
+
+.telemetry-app .sdk-os-capability-surface .capability-card-outline {
+  display: none;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-module.is-selected::after {
+  display: none;
+}
+
+.telemetry-app .sdk-os-capability-surface .capability-count-value {
+  color: #f5f5f5;
+  font-size: 38px;
+}
+
+.telemetry-app .sdk-os-capability-surface .machine-module.is-selected .capability-count-value,
+.telemetry-app .module-scope-command.is-active small {
+  color: #d15a5f;
+}
+
+.telemetry-app .sdk-os-capability-surface .capability-title {
+  color: #f5f5f5;
+  font-size: 19px;
+}
+
+.telemetry-app .sdk-os-capability-surface .module-description {
+  color: #a3a3a3;
+  font-size: 12px;
+}
+
+.telemetry-app .sdk-os-capability-surface .permission-rail,
+.telemetry-app .module-scope-command,
+.telemetry-app .sdk-os-capability-surface .channel-load {
+  border-color: #262626;
+}
+
+.telemetry-app .module-scope-command {
+  min-height: 36px;
+}
+
+.telemetry-app .module-scope-command.is-active strong {
+  color: #f5f5f5;
+}
+
+.telemetry-app .module-scope-command.is-active .module-scope-dot {
+  background: #a01016;
+  border-color: #a01016;
+}
+
+.telemetry-app .simple-permission-editor,
+.telemetry-app .simple-request-tester {
+  background: #0c0c0c !important;
+  border: 1px solid #262626;
+  border-radius: 24px;
+}
+
+.telemetry-app .simple-permission-editor > .simple-section-heading,
+.telemetry-app .simple-request-tester > .simple-section-heading {
+  border-bottom: 1px solid #262626;
+  margin: 0;
+}
+
+.telemetry-app .entity-picker,
+.telemetry-app .permission-list-panel > header,
+.telemetry-app .permission-list-row,
+.telemetry-app .permission-categories,
+.telemetry-app .request-test-layout,
+.telemetry-app .request-test-form {
+  background: #0c0c0c;
+  border-color: #262626;
+}
+
+.telemetry-app .entity-picker-options button,
+.telemetry-app .permission-categories button,
+.telemetry-app .permission-list-row {
+  color: #a3a3a3;
+}
+
+.telemetry-app .entity-picker-options button:hover,
+.telemetry-app .entity-picker-options button.is-active,
+.telemetry-app .permission-categories button:hover,
+.telemetry-app .permission-categories button.is-active,
+.telemetry-app .permission-list-row:hover,
+.telemetry-app .permission-list-row.is-selected {
+  background: #161616;
+  color: #f5f5f5;
+}
+
+.telemetry-app .entity-picker-options button.is-active,
+.telemetry-app .permission-categories button.is-active,
+.telemetry-app .permission-list-row.is-selected {
+  box-shadow: inset 3px 0 #a01016;
+}
+
+.telemetry-app .permission-copy strong,
+.telemetry-app .permission-list-panel > header h3 {
+  color: #f5f5f5;
+}
+
+.telemetry-app .permission-copy p,
+.telemetry-app .permission-list-panel > header p {
+  color: #a3a3a3;
+}
+
+.telemetry-app .access-master-switch > span,
+.telemetry-app .permission-toggle > span {
+  background: #262626;
+}
+
+.telemetry-app .access-master-switch.is-active > span,
+.telemetry-app .permission-toggle.is-active > span {
+  background: #a01016;
+}
+
+.telemetry-app .access-master-switch i,
+.telemetry-app .permission-toggle i {
+  background: #a3a3a3;
+}
+
+.telemetry-app .access-master-switch.is-active i,
+.telemetry-app .permission-toggle.is-active i {
+  background: #fff;
+}
+
+.telemetry-app .request-test-form select {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 16px;
+  color: #f5f5f5;
+}
+
+.telemetry-app .request-test-button {
+  background: #a01016;
+  border-color: #a01016;
+  border-radius: 16px;
+  color: #fff;
+}
+
+.telemetry-app .request-test-result {
+  background: #111;
+  color: #a01016;
+}
+
+.telemetry-app .request-test-result > p {
+  color: #f5f5f5;
+}
+
+.telemetry-app .request-test-result > span:not(.request-result-placeholder),
+.telemetry-app .request-test-result code {
+  color: #666;
+}
+
+.telemetry-app .request-result-placeholder {
+  border-color: #a01016;
+  border-radius: 50%;
+}
+
+
+
+/* Permission capability workstation */
+.telemetry-app .sdk-os-capability-surface > div:first-child h2 {
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.05;
+}
+
+.telemetry-app .sdk-os-capability-surface > div:first-child p,
+.telemetry-app .sdk-os-capability-surface > div:first-child > span:last-child {
+  font-size: 10px;
+}
+
+.policy-workstation {
+  background: #0c0c0c;
+  border: 1px solid #262626;
+  overflow: hidden;
+}
+
+.policy-workstation-header {
+  align-items: center;
+  background: #111;
+  border-bottom: 1px solid #262626;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 150px;
+  padding: 26px 30px;
+}
+
+.policy-workstation-header > div:first-child > span {
+  color: #666;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.policy-workstation-header h3 {
+  color: #f5f5f5;
+  font-family: var(--font-sora), sans-serif;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin-top: 9px;
+}
+
+.policy-workstation-header p {
+  color: #a3a3a3;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-top: 10px;
+}
+
+.policy-workstation-summary {
+  align-items: flex-end;
+  border-left: 1px solid #2e2e2e;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding-left: 26px;
+}
+
+.policy-workstation-summary strong {
+  color: #f5f5f5;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.policy-workstation-summary > span {
+  color: #a3a3a3;
+  font-size: 12px;
+  margin-top: 7px;
+}
+
+.policy-workstation-summary i {
+  color: #666;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  margin-top: 15px;
+  text-transform: uppercase;
+}
+
+.policy-workstation-summary i::before {
+  background: #666;
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  height: 6px;
+  margin-right: 7px;
+  width: 6px;
+}
+
+.policy-workstation-summary i.is-dirty {
+  color: #d15a5f;
+}
+
+.policy-workstation-summary i.is-dirty::before {
+  background: #a01016;
+}
+
+.policy-capability-grid {
+  background: #070707;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.policy-capability-module {
+  background: #0c0c0c;
+  border: 1px solid #262626;
+  border-radius: 22px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.policy-capability-module::before {
+  background: #a01016;
+  content: '';
+  height: 3px;
+  left: 28px;
+  opacity: 0;
+  position: absolute;
+  right: 28px;
+  top: 0;
+  transform: scaleX(0.35);
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.policy-capability-module:hover {
+  background: #111;
+  border-color: #2e2e2e;
+  transform: translateY(-2px);
+}
+
+.policy-capability-module.is-selected {
+  background: #111;
+  border-color: rgba(160, 16, 22, 0.62);
+}
+
+.policy-capability-module.is-selected::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.policy-capability-module:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.policy-capability-module > header {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 24px 24px 18px;
+}
+
+.policy-capability-icon {
+  align-items: center;
+  background: #161616;
+  border: 1px solid #2e2e2e;
+  border-radius: 16px;
+  color: #a3a3a3;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  transition: border-color 180ms ease, color 180ms ease;
+  width: 52px;
+}
+
+.policy-capability-icon svg {
+  height: 24px;
+  width: 24px;
+}
+
+.policy-capability-module.is-selected .policy-capability-icon {
+  border-color: rgba(160, 16, 22, 0.72);
+  color: #d15a5f;
+}
+
+.policy-capability-module > header > div > span {
+  color: #666;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.policy-capability-module > header h3 {
+  color: #f5f5f5;
+  font-family: var(--font-sora), sans-serif;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin-top: 7px;
+}
+
+.policy-capability-focus {
+  background: transparent;
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  color: #a3a3a3;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  min-height: 34px;
+  padding: 0 12px;
+  text-transform: uppercase;
+  transition: border-color 160ms ease, color 160ms ease;
+  white-space: nowrap;
+}
+
+.policy-capability-focus:hover {
+  border-color: #a01016;
+  color: #f5f5f5;
+}
+
+.policy-capability-description {
+  color: #a3a3a3;
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 620px;
+  min-height: 66px;
+  padding: 0 24px 18px;
+}
+
+.policy-scope-list {
+  border-top: 1px solid #262626;
+}
+
+.policy-capability-module:nth-child(5) .policy-scope-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.policy-capability-module:nth-child(5) .policy-scope-control:nth-child(odd) {
+  border-right: 1px solid #262626;
+}
+
+.policy-scope-control {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #262626;
+  color: #a3a3a3;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 86px;
+  padding: 15px 20px 15px 24px;
+  text-align: left;
+  transition: background-color 160ms ease;
+  width: 100%;
+}
+
+.policy-scope-control:last-child {
+  border-bottom: 0;
+}
+
+.policy-scope-control:hover {
+  background: #161616;
+}
+
+.policy-scope-control.is-active {
+  box-shadow: inset 3px 0 #a01016;
+}
+
+.policy-scope-copy {
+  display: block;
+  min-width: 0;
+}
+
+.policy-scope-copy strong {
+  color: #f5f5f5;
+  display: block;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-scope-copy small {
+  color: #666;
+  display: -webkit-box;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 6px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.policy-scope-state {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.policy-scope-switch {
+  background: #262626;
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  display: block;
+  height: 24px;
+  padding: 3px;
+  width: 42px;
+}
+
+.policy-scope-switch i {
+  background: #a3a3a3;
+  border-radius: 50%;
+  display: block;
+  height: 16px;
+  transform-origin: right center;
+  transition: background-color 160ms ease, transform 180ms ease;
+  width: 16px;
+}
+
+.policy-scope-control.is-active .policy-scope-switch {
+  background: #a01016;
+  border-color: #a01016;
+}
+
+.policy-scope-control.is-active .policy-scope-switch i {
+  background: #fff;
+  margin-left: 18px;
+}
+
+.policy-scope-state b {
+  color: #666;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.policy-scope-control.is-active .policy-scope-state b {
+  color: #d15a5f;
+}
+
+/* Inspector */
+.telemetry-app.split-layout-app .scope-manager .simple-access-inspector,
+.telemetry-app.split-layout-app .scope-manager .simple-inspector-header,
+.telemetry-app.split-layout-app .scope-manager .simple-access-inspector > .access-scroll {
+  background: #090909 !important;
+  color: #f5f5f5;
+}
+
+.telemetry-app .simple-access-inspector {
+  border-color: #262626;
+}
+
+.telemetry-app .simple-inspector-header,
+.telemetry-app .simple-access-overview,
+.telemetry-app .simple-inspector-section,
+.telemetry-app .simple-endpoint-list,
+.telemetry-app .simple-endpoint-list > div,
+.telemetry-app .simple-history-list > div {
+  border-color: #262626 !important;
+}
+
+.telemetry-app .simple-inspector-header h2,
+.telemetry-app .simple-inspector-section h3,
+.telemetry-app .simple-endpoint-list code,
+.telemetry-app .category-summary-list span,
+.telemetry-app .category-summary-list strong,
+.telemetry-app .simple-history-list strong {
+  color: #f5f5f5 !important;
+}
+
+.telemetry-app .simple-inspector-header p,
+.telemetry-app .simple-inspector-section > header span,
+.telemetry-app .simple-history-list p,
+.telemetry-app .simple-history-list time {
+  color: #666 !important;
+}
+
+.telemetry-app .inspector-identity-mark {
+  background: #161616;
+  border-color: rgba(160, 16, 22, 0.6);
+  color: #a01016;
+}
+
+.telemetry-app .inspector-policy-state i,
+.telemetry-app .category-summary-list i {
+  background: #a01016;
+}
+
+.telemetry-app .simple-access-overview > div,
+.telemetry-app .simple-inspector-section {
+  background: #0c0c0c !important;
+}
+
+.telemetry-app .simple-endpoint-list,
+.telemetry-app .sdk-policy-preview {
+  background: #070707;
+  border-color: #262626;
+  border-radius: 18px;
+}
+
+.telemetry-app .simple-endpoint-list span,
+.telemetry-app .sdk-policy-preview i {
+  color: #d15a5f;
+}
+
+.telemetry-app .sdk-policy-preview {
+  color: #a3a3a3;
+}
+
+.telemetry-app .sdk-policy-preview b {
+  color: #f5f5f5;
+}
+
+.telemetry-app .inspector-resize-track {
+  background: #161616;
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  color: #a3a3a3;
+}
+
+.telemetry-app .inspector-resize-handle:hover .inspector-resize-track {
+  background: #a01016;
+  border-color: #a01016;
+  color: #fff;
+}
+
+/* API key control surface */
+.telemetry-app .command-chassis,
+.telemetry-app .sdk-key-workspace {
+  background: #070707 !important;
+  border-color: #262626;
+}
+
+.telemetry-app .command-chassis .mobile-command-copy h1 {
+  color: #666 !important;
+}
+
+.telemetry-app .command-chassis .mobile-command-copy p {
+  color: #f5f5f5 !important;
+}
+
+.telemetry-app .command-dock {
+  background: #0c0c0c;
+  border-color: #262626;
+  border-radius: 18px;
+}
+
+.telemetry-app .command-button {
+  background: #111;
+  border-color: #2e2e2e;
+  color: #a3a3a3;
+}
+
+.telemetry-app .command-button:hover {
+  background: #1e1e1e;
+  color: #f5f5f5;
+}
+
+.telemetry-app .command-button.is-primary {
+  background: #a01016;
+  border-color: #a01016;
+  color: #fff;
+}
+
+.telemetry-app .command-status-rail {
+  background: #0c0c0c;
+  border-color: #262626;
+  color: #666;
+}
+
+.telemetry-app .credential-surface {
+  padding-bottom: 42px;
+}
+
+.telemetry-app .simple-section-heading p,
+.telemetry-app .simple-section-heading > span {
+  color: #666;
+}
+
+.telemetry-app .simple-section-heading h2 {
+  color: #f5f5f5;
+}
+
+.telemetry-app .simple-key-register {
+  background: #0c0c0c;
+  border: 1px solid #262626;
+  border-radius: 24px;
+}
+
+.telemetry-app .simple-key-table-head {
+  background: #111;
+  border-color: #262626;
+  color: #666;
+}
+
+.telemetry-app .simple-key-row {
+  background: #0c0c0c;
+  border-color: #262626;
+  color: #a3a3a3;
+}
+
+.telemetry-app .simple-key-row:hover {
+  background: #161616;
+}
+
+.telemetry-app .simple-key-row.is-active::before {
+  background: #a01016;
+}
+
+.telemetry-app .simple-key-identity strong,
+.telemetry-app .simple-key-owner,
+.telemetry-app .simple-key-environment,
+.telemetry-app .simple-key-used,
+.telemetry-app .simple-key-scopes {
+  color: #f5f5f5;
+}
+
+.telemetry-app .simple-key-identity small,
+.telemetry-app .simple-key-identity > span {
+  color: #666;
+}
+
+.telemetry-app .simple-key-status {
+  border: 1px solid #2e2e2e;
+  border-radius: 999px;
+  color: #666;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.telemetry-app .simple-key-status.is-active {
+  border-color: rgba(160, 16, 22, 0.62);
+  color: #d15a5f;
+}
+
+.telemetry-app .credential-overlay {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.telemetry-app .credential-drawer {
+  background: #0c0c0c;
+  border-color: #2e2e2e;
+  border-radius: 24px 0 0 24px;
+  color: #f5f5f5;
+}
+
+.telemetry-app .credential-drawer-header,
+.telemetry-app .credential-identity-block,
+.telemetry-app .credential-inspector-grid > div,
+.telemetry-app .credential-scope-ledger > div,
+.telemetry-app .credential-scope-ledger > p,
+.telemetry-app .credential-drawer-actions {
+  background: #0c0c0c;
+  border-color: #262626;
+}
+
+.telemetry-app .credential-drawer-header h2,
+.telemetry-app .credential-identity-block h2,
+.telemetry-app .credential-inspector-grid strong,
+.telemetry-app .credential-scope-ledger p code,
+.telemetry-app .credential-secret-view h2,
+.telemetry-app .credential-secret-view > code {
+  color: #f5f5f5;
+}
+
+.telemetry-app .credential-drawer-header p,
+.telemetry-app .credential-drawer-header > span,
+.telemetry-app .credential-identity-block > span,
+.telemetry-app .credential-identity-block > p,
+.telemetry-app .credential-inspector-grid span,
+.telemetry-app .credential-scope-ledger p span,
+.telemetry-app .credential-field-label,
+.telemetry-app .credential-secret-warning {
+  color: #666;
+}
+
+.telemetry-app .credential-constructor-form > input,
+.telemetry-app .credential-constructor-form > select,
+.telemetry-app .credential-preset-selector,
+.telemetry-app .credential-scope-selector,
+.telemetry-app .credential-secret-view > code {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 16px;
+  color: #f5f5f5;
+}
+
+.telemetry-app .credential-preset-selector button,
+.telemetry-app .credential-scope-selector button {
+  color: #a3a3a3;
+}
+
+.telemetry-app .credential-preset-selector button.is-active,
+.telemetry-app .credential-scope-selector button.is-active {
+  background: #161616;
+  color: #f5f5f5;
+}
+
+.telemetry-app .credential-scope-selector button.is-active {
+  box-shadow: inset 3px 0 #a01016;
+}
+
+.telemetry-app .credential-success-mark,
+.telemetry-app .credential-copy-command,
+.telemetry-app .credential-generate-command,
+.telemetry-app .credential-drawer-actions .is-primary {
+  background: #a01016;
+  border-color: #a01016;
+  color: #fff;
+}
+
+.telemetry-app .credential-drawer-actions .is-danger {
+  background: #111;
+  border-color: rgba(160, 16, 22, 0.62);
+  color: #d15a5f;
+}
+
+.telemetry-app .critical-grant-backdrop {
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.telemetry-app .critical-grant-panel,
+.telemetry-app .policy-notice {
+  background: #111;
+  border-color: #2e2e2e;
+  border-radius: 22px;
+  color: #f5f5f5;
+}
+
+@media (min-width: 640px) {
+  .telemetry-app .machine-sidebar {
+    width: 76px !important;
+  }
+
+  .telemetry-app .machine-nav-cell {
+    height: 52px;
+    width: 52px;
+  }
+
+  .telemetry-app .machine-nav-cell.is-active {
+    background: transparent;
+    border: 1px solid rgba(160, 16, 22, 0.28);
+    border-left: 0;
+    border-radius: 0 16px 16px 0;
+    box-shadow: none;
+    margin-right: -10px;
+    transform: none;
+    width: calc(100% + 10px);
+  }
+}
+
+@media (max-width: 1100px) {
+  .telemetry-page-header {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .telemetry-header-instrument {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-header-status {
+    border-bottom: 1px solid #262626;
+    border-right: 0;
+  }
+
+  .telemetry-header-metric {
+    display: none;
+  }
+
+  .telemetry-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .telemetry-health-strip {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .telemetry-health-wave {
+    display: none;
+  }
+
+  .policy-capability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .policy-capability-module:nth-child(5) {
+    grid-column: auto;
+  }
+
+  .policy-capability-module:nth-child(5) .policy-scope-list {
+    display: block;
+  }
+
+  .policy-capability-module:nth-child(5) .policy-scope-control:nth-child(odd) {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .telemetry-page-header {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-page-title {
+    padding: 30px 24px;
+  }
+
+  .telemetry-page-title h1 {
+    font-size: clamp(34px, 11vw, 52px);
+  }
+
+  .telemetry-header-instrument {
+    border-left: 0;
+    border-top: 1px solid #262626;
+    min-height: 130px;
+  }
+
+  .telemetry-header-status {
+    border: 0;
+    padding: 22px 24px 38px;
+  }
+
+  .telemetry-header-status svg {
+    margin-bottom: 12px;
+  }
+
+  .telemetry-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .telemetry-health-strip {
+    grid-template-columns: auto 1fr;
+  }
+
+  .telemetry-health-stream {
+    border-left: 0;
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+
+  .telemetry-event-meta-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-send-module > header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .telemetry-send-module > header > svg {
+    display: none;
+  }
+
+  .policy-workstation-header {
+    align-items: start;
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+
+  .policy-workstation-summary {
+    align-items: flex-start;
+    border-left: 0;
+    border-top: 1px solid #2e2e2e;
+    padding-left: 0;
+    padding-top: 20px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 639px) {
+  .telemetry-app .industrial-chassis {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .telemetry-page-frame {
+    padding: 14px 12px 86px !important;
+  }
+
+  .telemetry-page-header,
+  .telemetry-table-shell,
+  .telemetry-state,
+  .telemetry-card,
+  .telemetry-stat-grid,
+  .telemetry-inline-instrument,
+  .telemetry-gap-group,
+  .telemetry-section-rail {
+    border-radius: 18px;
+  }
+
+  .telemetry-page-title > span {
+    font-size: 14px;
+  }
+
+  .telemetry-loading-state {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .telemetry-loading-segments {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .telemetry-error-state {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .telemetry-error-state > b {
+    margin-left: 0;
+  }
+
+  .telemetry-table-head th,
+  .telemetry-table-row td {
+    padding-inline: 14px;
+  }
+
+  .telemetry-health-dial {
+    height: 58px;
+    width: 58px;
+  }
+
+  .telemetry-delivery-timeline li {
+    align-items: start;
+    grid-template-columns: auto 1fr;
+  }
+
+  .telemetry-attempt-readout {
+    align-items: flex-start;
+    grid-column: 2;
+  }
+
+  .telemetry-app .sdk-os-header {
+    padding: 14px;
+  }
+
+  .telemetry-app .sdk-os-capability-surface {
+    padding: 14px;
+  }
+
+  .policy-workstation,
+  .policy-capability-module {
+    border-radius: 18px;
+  }
+
+  .policy-workstation-header {
+    padding: 22px 18px;
+  }
+
+  .policy-capability-grid {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .policy-capability-module > header {
+    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 20px 18px 16px;
+  }
+
+  .policy-capability-focus {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .policy-capability-description {
+    min-height: 0;
+    padding: 0 18px 16px;
+  }
+
+  .policy-scope-control {
+    min-height: 94px;
+    padding-inline: 18px 14px;
+  }
+
+  .telemetry-app .credential-drawer {
+    border-radius: 22px 22px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telemetry-loading-segments i {
+    animation: none;
+  }
+}

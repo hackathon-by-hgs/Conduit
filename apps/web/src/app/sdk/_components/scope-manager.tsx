@@ -1,38 +1,269 @@
 'use client';
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { ArrowRight, Check, KeyRound, Plus, ShieldAlert, X } from 'lucide-react';
-import { ENTITIES, INITIAL_GRANTS, getScope, type AccessEntity } from './access-data';
-import { LivePreview } from './live-preview';
-import { PermissionMatrix } from './permission-matrix';
-import { ScopeTree } from './scope-tree';
+import { useRef, useState, useEffect } from 'react';
+import { gsap } from 'gsap';
+import {
+  ArrowRight,
+  CaretUpDown,
+  Check,
+  FileCode,
+  FloppyDisk,
+  IdentificationBadge,
+  MagnifyingGlass,
+  ShieldWarning,
+  UserCircle,
+} from '@phosphor-icons/react';
+import { ALL_SCOPES, ENTITIES, INITIAL_GRANTS, SCOPE_GROUPS, getScope, type AccessEntity } from './access-data';
+import { PermissionInspector, useInspectorResize, type InspectorEvent } from './permission-inspector';
+import { AccessTopology } from './access-topology';
+import { CapabilitySurface } from './capability-surface';
+import { MagneticFillButton } from './magnetic-fill-button';
+import { ScopeViewSwitcher, type ScopeView } from './scope-view-switcher';
+import { SimulationLane } from './simulation-lane';
 
 type PendingGrant = { scopeId: string; entityIds: string[] } | null;
+type SearchSuggestion = {
+  id: string;
+  label: string;
+  kicker: string;
+  detail: string;
+  onChoose: () => void;
+};
 
+const INITIAL_HISTORY: InspectorEvent[] = [
+  { id: 'history-1', action: 'Published', detail: 'Production SDK policy v1.4.2', time: '2m ago', tone: 'success' },
+  { id: 'history-2', action: 'Modified', detail: 'events:stream granted to Team Alpha', time: '19m ago' },
+  { id: 'history-3', action: 'Rotated', detail: 'KEY-001 credential material', time: '2d ago', tone: 'warning' },
+  { id: 'history-4', action: 'Created', detail: 'Team Beta access entity', time: '8d ago' },
+];
 export function ScopeManager() {
-  const [entities, setEntities] = useState<AccessEntity[]>(ENTITIES);
+  const rootRef = useRef<HTMLElement>(null);
+  const viewPanelRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [entities] = useState<AccessEntity[]>(ENTITIES);
   const [grants, setGrants] = useState<Record<string, string[]>>(() => structuredClone(INITIAL_GRANTS));
-  const [selectedScope, setSelectedScope] = useState('events:stream');
+  const [selectedGroup, setSelectedGroup] = useState('events');
+  const [_selectedScope, setSelectedScope] = useState('events:read');
+  const [selectedCapability, setSelectedCapability] = useState('events');
+  const [requestedOpenGroup, setRequestedOpenGroup] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<ScopeView>('permissions');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [focusedEntity, setFocusedEntity] = useState('team-alpha');
+  const [connected, setConnected] = useState(true);
+  const [entityDropdownOpen, setEntityDropdownOpen] = useState(false);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+  const entityDropdownRef = useRef<HTMLDivElement>(null);
+  const entityMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!entityDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (entityDropdownRef.current && !entityDropdownRef.current.contains(e.target as Node)) {
+        setEntityDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [entityDropdownOpen]);
+
+  useEffect(() => {
+    if (!searchFocused || !searchDropdownRef.current) return;
+
+    gsap.fromTo(
+      searchDropdownRef.current,
+      { autoAlpha: 0, y: -8, scale: 0.98, transformOrigin: 'top center' },
+      { autoAlpha: 1, y: 0, scale: 1, duration: 0.2, ease: 'power2.out' },
+    );
+  }, [searchFocused]);
+
+  useEffect(() => {
+    if (!entityDropdownOpen || !entityMenuRef.current) return;
+
+    gsap.fromTo(
+      entityMenuRef.current,
+      { autoAlpha: 0, y: -6, scale: 0.98, transformOrigin: 'top right' },
+      { autoAlpha: 1, y: 0, scale: 1, duration: 0.18, ease: 'power2.out' },
+    );
+  }, [entityDropdownOpen]);
+
+  useEffect(() => {
+    if (!viewPanelRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    gsap.fromTo(
+      viewPanelRef.current,
+      { autoAlpha: 0.88, y: 8, filter: 'blur(5px)' },
+      { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.24, ease: 'power2.out' },
+    );
+  }, [activeView]);
   const [lastChanged, setLastChanged] = useState<string | null>(null);
-  const [draft, setDraft] = useState(false);
-  const [lastSaved, setLastSaved] = useState('2m ago');
+  const [dirty, setDirty] = useState(false);
+  const [unpublished, setUnpublished] = useState(false);
+  const [_lastSaved, setLastSaved] = useState('2m ago');
   const [pendingGrant, setPendingGrant] = useState<PendingGrant>(null);
-  const [showAddTeam, setShowAddTeam] = useState(false);
-  const [teamName, setTeamName] = useState('');
+  const [history, setHistory] = useState<InspectorEvent[]>(INITIAL_HISTORY);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [generationKey, setGenerationKey] = useState(0);
+  const { width: inspectorWidth, startResize } = useInspectorResize();
 
   const focused = entities.find((entity) => entity.id === focusedEntity) ?? entities[0];
   const focusedGrants = grants[focused.id] ?? [];
-  const unionCount = useMemo(
-    () => new Set(entities.flatMap((entity) => grants[entity.id] ?? [])).size,
-    [entities, grants],
-  );
+  const effectiveGrants = connected ? focusedGrants : [];
 
-  const registerChange = (scopeId: string) => {
+  const focusCapability = (capabilityId: string, scopeId: string) => {
+    setSelectedCapability(capabilityId);
+    setSelectedScope(scopeId);
+    const group = SCOPE_GROUPS.find((item) => item.scopes.some((scope) => scope.id === scopeId));
+    if (group) setSelectedGroup(group.id);
+    setActiveView('permissions');
+  };
+
+  const scrollPermissionGroupIntoView = (groupId: string) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const target = rootRef.current?.querySelector<HTMLElement>(`[data-policy-group="${groupId}"]`);
+        if (!target) return;
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        gsap.fromTo(
+          target,
+          { backgroundColor: 'rgba(160,16,22,0.08)' },
+          { backgroundColor: 'rgba(160,16,22,0)', duration: 0.9, ease: 'power2.out' },
+        );
+      });
+    });
+  };
+
+  const requestPermissionGroupOpen = (groupId: string) => {
+    setRequestedOpenGroup(null);
+    window.requestAnimationFrame(() => setRequestedOpenGroup(groupId));
+  };
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 1800);
+  };
+
+  const executeSearch = () => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      setMobileSearchOpen(false);
+      return;
+    }
+
+    const entity = entities.find((item) => (
+      item.label.toLowerCase().includes(query) || item.id.toLowerCase().includes(query)
+    ));
+    if (entity) {
+      setFocusedEntity(entity.id);
+      setSearchQuery('');
+      setMobileSearchOpen(false);
+      showNotice(`Context switched to ${entity.label}`);
+      return;
+    }
+
+    const scope = ALL_SCOPES.find((item) => (
+      item.id.toLowerCase().includes(query) || item.description.toLowerCase().includes(query)
+    ));
+    const group = SCOPE_GROUPS.find((item) => (
+      item.label.toLowerCase().includes(query)
+      || item.id.toLowerCase().includes(query)
+      || item.scopes.some((itemScope) => itemScope.id.includes(query))
+      || (scope ? item.scopes.some((itemScope) => itemScope.id === scope.id) : false)
+    ));
+    if (group) {
+      const matchedScope = scope && group.scopes.some((item) => item.id === scope.id)
+        ? scope.id
+        : group.scopes[0].id;
+      focusCapability(group.id, matchedScope);
+      requestPermissionGroupOpen(group.id);
+      scrollPermissionGroupIntoView(group.id);
+      setSearchQuery('');
+      setMobileSearchOpen(false);
+      showNotice(`Focused ${group.label}`);
+      return;
+    }
+
+    showNotice(`No SDK capability matched "${searchQuery.trim()}"`);
+  };
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const baseSearchSuggestions: SearchSuggestion[] = [
+    ...SCOPE_GROUPS.map((group) => ({
+      id: `group-${group.id}`,
+      label: group.label,
+      kicker: 'Permission group',
+      detail: `${group.scopes.length} SDK operations`,
+        onChoose: () => {
+          focusCapability(group.id, group.scopes[0].id);
+          requestPermissionGroupOpen(group.id);
+          scrollPermissionGroupIntoView(group.id);
+          setSearchQuery('');
+          setSearchFocused(false);
+          setMobileSearchOpen(false);
+          showNotice(`Focused ${group.label}`);
+      },
+    })),
+    ...ALL_SCOPES.map((scope) => {
+      const group = SCOPE_GROUPS.find((item) => item.scopes.some((itemScope) => itemScope.id === scope.id));
+
+      return {
+        id: `scope-${scope.id}`,
+        label: scope.id,
+        kicker: group?.label ?? 'Scope',
+        detail: scope.description,
+        onChoose: () => {
+          focusCapability(group?.id ?? selectedCapability, scope.id);
+          if (group) {
+            requestPermissionGroupOpen(group.id);
+            scrollPermissionGroupIntoView(group.id);
+          }
+          setSearchQuery('');
+          setSearchFocused(false);
+          setMobileSearchOpen(false);
+          showNotice(`Focused ${scope.id}`);
+        },
+      };
+    }),
+    ...entities.map((entity) => ({
+      id: `entity-${entity.id}`,
+      label: entity.label,
+      kicker: entity.type === 'team' ? 'Team entity' : 'API key entity',
+      detail: entity.id,
+      onChoose: () => {
+        setFocusedEntity(entity.id);
+        setSearchQuery('');
+        setSearchFocused(false);
+        setMobileSearchOpen(false);
+        showNotice(`Context switched to ${entity.label}`);
+      },
+    })),
+  ];
+  const searchSuggestions = baseSearchSuggestions
+    .filter((item) => (
+      !normalizedSearchQuery
+      || item.label.toLowerCase().includes(normalizedSearchQuery)
+      || item.kicker.toLowerCase().includes(normalizedSearchQuery)
+      || item.detail.toLowerCase().includes(normalizedSearchQuery)
+    ))
+    .slice(0, 9);
+  const searchExpanded = searchFocused || mobileSearchOpen || searchQuery.trim().length > 0;
+
+  const pushHistory = (action: string, detail: string, tone: InspectorEvent['tone'] = 'neutral') => {
+    setHistory((current) => [
+      { id: `history-${Date.now()}-${Math.random()}`, action, detail, time: 'now', tone },
+      ...current,
+    ]);
+  };
+
+  const registerChange = (scopeId: string, granted: boolean, entityLabel = focused.label) => {
     setLastChanged(scopeId);
-    setDraft(true);
-    window.setTimeout(() => setLastChanged((current) => (current === scopeId ? null : current)), 500);
+    setDirty(true);
+    setUnpublished(true);
+    pushHistory(granted ? 'Granted' : 'Revoked', `${scopeId} ${granted ? 'granted to' : 'revoked from'} ${entityLabel}`, granted ? 'success' : 'warning');
+    window.setTimeout(() => setLastChanged((current) => (current === scopeId ? null : current)), 900);
   };
 
   const applyGrant = (scopeId: string, entityIds: string[], value = true) => {
@@ -46,10 +277,17 @@ export function ScopeManager() {
       });
       return next;
     });
-    registerChange(scopeId);
+    const targetLabel = entityIds.length === 1
+      ? entities.find((entity) => entity.id === entityIds[0])?.label ?? focused.label
+      : `${entityIds.length} access entities`;
+    registerChange(scopeId, value, targetLabel);
   };
 
-  const toggleScope = (scopeId: string, entityId: string) => {
+  const toggleScope = (scopeId: string, entityId = focused.id) => {
+    setSelectedScope(scopeId);
+    const group = SCOPE_GROUPS.find((item) => item.scopes.some((scope) => scope.id === scopeId));
+    if (group) setSelectedGroup(group.id);
+
     const granted = grants[entityId]?.includes(scopeId) ?? false;
     const scope = getScope(scopeId);
     if (!granted && scope.risk === 'critical') {
@@ -59,91 +297,416 @@ export function ScopeManager() {
     applyGrant(scopeId, [entityId], !granted);
   };
 
-  const bulkAction = (action: 'grant' | 'revoke' | 'copy') => {
-    if (action === 'copy') {
-      const sourceId = focusedEntity === 'team-alpha' ? 'team-beta' : 'team-alpha';
-      const value = grants[sourceId]?.includes(selectedScope) ?? false;
-      applyGrant(selectedScope, [focusedEntity], value);
-      return;
-    }
+  const _updateConnection = (nextConnected: boolean) => {
+    setConnected(nextConnected);
+    setUnpublished(true);
+    setDirty(true);
+    pushHistory(nextConnected ? 'Connected' : 'Disconnected', `${focused.label} permission path ${nextConnected ? 'restored' : 'interrupted'}`, nextConnected ? 'success' : 'warning');
+  };
 
-    const value = action === 'grant';
-    const scope = getScope(selectedScope);
-    if (value && scope.risk === 'critical') {
-      const deniedEntityIds = entities.filter((entity) => !grants[entity.id]?.includes(selectedScope)).map((entity) => entity.id);
-      if (deniedEntityIds.length) setPendingGrant({ scopeId: selectedScope, entityIds: deniedEntityIds });
-      return;
-    }
-    applyGrant(selectedScope, entities.map((entity) => entity.id), value);
+  const generatePolicy = async () => {
+    const policy = JSON.stringify({ entity: focused.id, connected, permissions: effectiveGrants }, null, 2);
+    await navigator.clipboard.writeText(policy);
+    setGenerationKey((current) => current + 1);
+    showNotice('SDK policy generated and copied');
+  };
+
+  const saveChanges = () => {
+    setDirty(false);
+    setLastSaved('now');
+    pushHistory('Saved', `Draft policy saved for ${focused.label}`);
+    setNotice('Draft saved');
+    window.setTimeout(() => setNotice(null), 1500);
   };
 
   const publish = () => {
-    setDraft(false);
-    setLastSaved('now');
+    const sweep = document.querySelector<HTMLElement>('.policy-publish-sweep');
+    const statusLabel = rootRef.current?.querySelector<HTMLElement>('[data-status-label]');
+
+    if (sweep) {
+      gsap.fromTo(sweep, { width: 0, opacity: 1 }, {
+        width: '100%',
+        opacity: 1,
+        duration: 0.6,
+        ease: 'power2.inOut',
+        onComplete: () => { gsap.to(sweep, { opacity: 0, duration: 0.25 }); },
+      });
+    }
+    const commitPublish = () => {
+      setDirty(false);
+      setUnpublished(false);
+      setLastSaved('now');
+      pushHistory('Published', `${focused.label} configuration moved to production`, 'success');
+      setNotice('Configuration published');
+      window.setTimeout(() => setNotice(null), 1800);
+      window.requestAnimationFrame(() => {
+        if (statusLabel) gsap.fromTo(statusLabel, { opacity: 0 }, { opacity: 1, duration: 0.18, ease: 'power2.out' });
+      });
+    };
+
+    if (statusLabel) gsap.to(statusLabel, { opacity: 0, duration: 0.15, onComplete: commitPublish });
+    else commitPublish();
   };
 
-  const addTeam = () => {
-    const label = teamName.trim();
-    if (!label) return;
-    const id = `team-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString().slice(-4)}`;
-    const entity: AccessEntity = { id, label, shortLabel: label.split(/\s+/).at(-1) ?? label, type: 'team' };
-    setEntities((current) => [...current, entity]);
-    setGrants((current) => ({ ...current, [id]: [] }));
-    setFocusedEntity(id);
-    setTeamName('');
-    setShowAddTeam(false);
-    setDraft(true);
-  };
+  const status = dirty ? 'Draft' : unpublished ? 'Saved' : 'Synced';
 
   return (
-    <main className="flex min-h-[calc(100dvh-48px)] min-w-0 max-w-full flex-col overflow-x-hidden sm:min-h-[calc(100dvh-26px)]">
-      <header className="shrink-0 border-b border-white/10">
-        <div className="flex min-h-[70px] flex-wrap items-center gap-4 px-4 py-3 sm:px-5 lg:px-6">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-[0.28em] text-white/30">
-              <span>Access surface</span><span className="text-white/12">/</span><span>SDK permission layer</span>
+    <main ref={rootRef} className="relative flex h-[calc(100dvh-118px)] min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-none bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/94 to-black/96 sm:h-[calc(100dvh-24px)] sm:rounded-r-[28px] xl:flex-row">
+      <section className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
+        <header className="relative z-[120] shrink-0 overflow-visible border-b border-white/[0.07] bg-gradient-to-r from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+          <div data-command-head className="relative z-[130] grid min-h-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 sm:px-5 md:min-h-[66px] md:grid-cols-[auto_minmax(260px,1fr)_auto] md:gap-[14px] md:py-3">
+            <div className="min-w-0 md:min-w-[190px]">
+              {/* <span>Control center</span> */}
+              <h1 className="font-sans text-[18px] font-semibold text-[#f5faf7] sm:text-[19px]">SDK Policy Engine</h1>
             </div>
-            <p className="mt-1.5 text-xs text-white/35">Effective access, before it reaches production.</p>
+
+            <div className="relative z-[170] min-w-0 justify-self-end md:w-full md:justify-self-stretch">
+              <form
+                className={[
+                  'group relative grid h-11 items-center gap-2.5 overflow-hidden rounded-2xl border px-3 transition-[width,background-color,border-color,transform] duration-300 ease-[cubic-bezier(.23,1,.32,1)] focus-within:border-[#A01016]/75 focus-within:bg-white/[0.045] sm:h-12 md:w-full',
+                  searchExpanded ? 'w-[min(78vw,330px)]' : 'w-11 cursor-pointer px-0',
+                  searchFocused
+                    ? 'border-[#A01016]/75 bg-white/[0.045]'
+                    : 'border-white/[0.08] bg-white/[0.035] hover:bg-white/[0.045]',
+                ].join(' ')}
+                style={{ gridTemplateColumns: searchExpanded ? 'auto minmax(0, 1fr) auto' : '1fr' }}
+                onClick={() => {
+                  if (!searchExpanded) {
+                    setMobileSearchOpen(true);
+                    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+                  }
+                }}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  executeSearch();
+                  setSearchFocused(false);
+                  if (!searchQuery.trim()) setMobileSearchOpen(false);
+                }}
+              >
+                <MagnifyingGlass weight="bold" className={['h-[17px] w-[17px] transition-[color,transform] duration-200', searchFocused ? 'text-[#e2f0e7]/62' : 'text-[#e2f0e7]/50', searchExpanded ? '' : 'mx-auto group-hover:scale-110'].join(' ')} />
+                <input
+                  ref={searchInputRef}
+                  className={[
+                    'w-full min-w-0 appearance-none border-0 bg-transparent text-[13px] font-sans text-[#f4faf6] outline-none transition-opacity duration-200 placeholder:text-[#e2f0e7]/30 focus:!outline-none focus-visible:!outline-none focus-visible:!ring-0 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden',
+                    searchExpanded ? 'opacity-100' : 'pointer-events-none absolute opacity-0',
+                  ].join(' ')}
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={(event) => {
+                    const nextValue = event.currentTarget.value.trim();
+                    window.setTimeout(() => {
+                      setSearchFocused(false);
+                      if (!nextValue) setMobileSearchOpen(false);
+                    }, 120);
+                  }}
+                  placeholder="Search capabilities, scopes, entities..."
+                  aria-label="Search SDK capabilities"
+                  aria-expanded={searchFocused}
+                  aria-controls="sdk-search-panel"
+                />
+                <kbd className={['hidden font-mono text-[8px] uppercase tracking-[0.08em] transition-colors duration-200 sm:block', searchExpanded ? '' : 'sr-only', searchFocused ? 'text-white/45' : 'text-[#e2f0e7]/30'].join(' ')}>Enter</kbd>
+              </form>
+
+              {searchFocused ? (
+                <div
+                  ref={searchDropdownRef}
+                  id="sdk-search-panel"
+                  role="listbox"
+                  aria-label="SDK search results"
+                  onMouseDown={(event) => event.preventDefault()}
+                  className="absolute left-0 right-0 top-[calc(100%+10px)] z-[260] overflow-hidden rounded-[22px] border border-white/[0.07] bg-[#070807]/96 backdrop-blur-2xl"
+                >
+                  <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-3.5 py-3">
+                    <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/34">
+                      Search index
+                    </span>
+                    <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-white/25">
+                      {searchSuggestions.length} result{searchSuggestions.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+
+                  <div className="access-scroll max-h-[360px] overflow-y-auto p-1.5">
+                    {searchSuggestions.length ? searchSuggestions.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="option"
+                        onClick={item.onChoose}
+                        className="group/search flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-[background-color,color,transform] duration-150 hover:bg-white/[0.055] focus-visible:bg-white/[0.055] focus-visible:outline-none"
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[13px] bg-white/[0.04] text-white/42 transition-colors duration-150 group-hover/search:bg-[#A01016]/15 group-hover/search:text-[#f06b71]">
+                          <MagnifyingGlass weight="bold" className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-sans text-[13px] font-semibold text-white/84 group-hover/search:text-white">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block truncate text-[11px] text-white/38">
+                            {item.detail}
+                          </span>
+                        </span>
+                        <span className="hidden rounded-full bg-white/[0.04] px-2.5 py-1 font-mono text-[7.5px] font-semibold uppercase tracking-[0.12em] text-white/34 sm:inline-flex">
+                          {item.kicker}
+                        </span>
+                      </button>
+                    )) : (
+                      <div className="px-4 py-8 text-center">
+                        <p className="font-sans text-[13px] font-semibold text-white/72">No matching capability</p>
+                        <p className="mt-1 text-[11px] text-white/34">Try a group, SDK scope, team, or key name.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="col-span-2 flex w-full items-center gap-2 md:col-span-1 md:w-auto">
+              {/* ── Custom entity dropdown ─────────────────────── */}
+              <div ref={entityDropdownRef} className="relative z-[150] w-full md:w-auto">
+                {/* Trigger */}
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={entityDropdownOpen}
+                  onClick={() => setEntityDropdownOpen((o) => !o)}
+                  className={[
+                    'group flex h-11 w-full min-w-0 items-center gap-2.5 rounded-full border px-3 md:h-[46px] md:min-w-[168px] md:px-3.5',
+                    entityDropdownOpen
+                      ? 'border-white/[0.09] bg-[#101010]/96'
+                      : 'border-transparent bg-white/[0.035] hover:bg-white/[0.055]',
+                  ].join(' ')}
+                >
+                  {/* Entity-type icon badge */}
+                  <span className={[
+                    'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[11px] transition-colors duration-200 sm:h-8 sm:w-8 sm:rounded-xl',
+                    focused.type === 'team'
+                      ? 'bg-[#A01016]/12 text-[#d14a51]'
+                      : 'bg-white/[0.045] text-white/55',
+                  ].join(' ')}>
+                    {focused.type === 'team'
+                      ? <UserCircle weight="fill" className="h-[18px] w-[18px]" />
+                      : <IdentificationBadge weight="fill" className="h-[18px] w-[18px]" />}
+                  </span>
+
+                  {/* Label */}
+                  <span className="flex min-w-0 flex-1 flex-col text-left">
+                    <span className="font-mono text-[7.5px] font-bold uppercase tracking-[0.2em] text-white/30">Entity</span>
+                    <span className="mt-0.5 truncate font-sans text-[13px] font-bold leading-none text-white">{focused.label}</span>
+                  </span>
+
+                  {/* Caret */}
+                  <CaretUpDown
+                    weight="bold"
+                    className={['h-3.5 w-3.5 flex-shrink-0 transition-all duration-200', entityDropdownOpen ? 'text-white/60' : 'text-white/25'].join(' ')}
+                  />
+                </button>
+
+                {/* Floating panel */}
+                {entityDropdownOpen && (
+                  <div
+                    ref={entityMenuRef}
+                    role="listbox"
+                    aria-label="Select entity"
+                    className="absolute left-0 right-0 top-[calc(100%+10px)] z-[260] overflow-hidden rounded-[22px] border border-white/[0.1] bg-[#050505]/98 backdrop-blur-2xl md:left-auto md:min-w-[264px] md:rounded-[24px]"
+                  >
+                    {/* Panel header */}
+                    <div className="border-b border-white/[0.07] bg-white/[0.018] px-4 py-3">
+                      <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/30">
+                        Select access entity
+                      </p>
+                    </div>
+
+                    {/* Options */}
+                    <div className="p-2">
+                      {entities.map((entity) => {
+                        const active = entity.id === focused.id;
+                        return (
+                          <button
+                            key={entity.id}
+                            type="button"
+                            role="option"
+                            aria-selected={active}
+                            onClick={() => { setFocusedEntity(entity.id); setEntityDropdownOpen(false); }}
+                            className={[
+                              'group relative flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left',
+                              active
+                                ? 'bg-[#A01016]/16 text-white'
+                                : 'text-white/58 hover:bg-white/[0.055] hover:text-white',
+                            ].join(' ')}
+                          >
+                            {active ? <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-r-full bg-[#A01016]" aria-hidden="true" /> : null}
+                            {/* Icon */}
+                            <span className={[
+                              'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[14px] transition-colors',
+                              active
+                                ? (entity.type === 'team'
+                                    ? 'bg-[#A01016]/22 text-[#ff747b]'
+                                    : 'bg-white/[0.06] text-white/70')
+                                : 'bg-white/[0.035] text-white/34 group-hover:bg-white/[0.055] group-hover:text-white/62',
+                            ].join(' ')}>
+                              {entity.type === 'team'
+                                ? <UserCircle weight="fill" className="h-[18px] w-[18px]" />
+                                : <IdentificationBadge weight="fill" className="h-[18px] w-[18px]" />}
+                            </span>
+
+                            {/* Text */}
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <strong className="block truncate font-sans text-[13px] font-semibold leading-tight">
+                                {entity.label}
+                              </strong>
+                              <span className="mt-1 font-mono text-[8.5px] text-white/34">
+                                {entity.type === 'team' ? 'Team' : 'API Key'}
+                              </span>
+                            </span>
+
+                            {/* Active checkmark */}
+                            {active && (
+                              <Check weight="bold" className="h-3.5 w-3.5 flex-shrink-0 text-[#a01016]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* <button
+                type="button"
+                className="os-notification-command"
+                aria-label="Show policy notifications"
+                onClick={() => showNotice(`${history.length} policy events in this session`)}
+              >
+                <Bell weight="bold" />
+                <span>{history.length}</span>
+              </button> */}
+            </div>
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3">
-            <span className={`border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] ${draft ? 'draft-badge border-amber-500/40 bg-amber-500/10 text-amber-300' : 'border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-300'}`}>
-              {draft ? 'Draft' : 'Synced'}
-            </span>
-            <span className="hidden font-mono text-[9px] text-white/25 md:inline">last saved {lastSaved}</span>
-            <Link href="/sdk/keys" className="hidden items-center gap-2 border border-white/12 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.14em] text-white/45 transition hover:border-white/35 hover:text-white lg:flex">
-              <KeyRound className="h-3.5 w-3.5" /> API keys
-            </Link>
-            <button type="button" onClick={publish} disabled={!draft} className={`flex items-center gap-2 border px-3 py-2 font-mono text-[9px] font-semibold uppercase tracking-[0.13em] transition ${draft ? 'publish-ready border-white bg-white text-black hover:bg-emerald-300' : 'cursor-not-allowed border-white/10 bg-white/[0.03] text-white/20'}`}>
-              <span className="sm:hidden">Publish</span><span className="hidden sm:inline">Publish changes</span> <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+          <div className="flex min-h-0 flex-col items-stretch justify-center gap-2 px-3 py-2 sm:px-5 md:min-h-[50px] md:flex-row md:items-center md:justify-between md:py-1.5">
+            <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
+
+              <div className="access-scroll -mx-3 flex w-[calc(100%+24px)] gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:ml-auto md:w-auto md:overflow-visible md:px-0 md:pb-0">
+              <span data-status-label className="flex h-10 min-w-[112px] shrink-0 items-center rounded-full bg-[#A01016]/10 p-1 pr-3 transition-opacity md:h-[46px] md:min-w-[124px] md:p-1.5 md:pr-4">
+                <span className="mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/5 text-white/50 md:mr-3 md:h-[34px] md:w-[34px]"><Check weight="bold" /></span>
+                <span className="flex flex-col justify-center"><small className="font-sans text-[9px] font-semibold text-white/40 md:text-[10px]">Policy</small><strong className="font-sans text-[11px] font-bold text-[#A01016] md:text-[12px]">{status}</strong></span>
+              </span>
+
+              <div className="flex shrink-0 gap-2 md:flex-wrap md:items-center">
+                <button
+                  type="button"
+                  onClick={() => setInspectorOpen(true)}
+                  className="group flex h-10 min-w-[132px] shrink-0 items-center rounded-full bg-white/[0.045] p-1 pr-3 text-left text-white transition-[background-color,transform] duration-200 hover:scale-[0.965] hover:bg-white/[0.075] active:scale-[0.94] xl:hidden"
+                >
+                  <span className="mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#A01016]/14 text-[#d14a51] transition-colors group-hover:bg-[#A01016] group-hover:text-white">
+                    <UserCircle weight="fill" className="h-4 w-4" />
+                  </span>
+                  <span className="flex flex-col justify-center">
+                    <strong className="font-sans text-[10px] font-black uppercase tracking-widest text-white/90">Summary</strong>
+                    <small className="font-mono text-[8px] font-semibold uppercase tracking-[0.12em] text-white/36">{effectiveGrants.length}/18 access</small>
+                  </span>
+                </button>
+                <MagneticFillButton type="button" onClick={generatePolicy} fillClassName="bg-[#A01016]" contentClassName="h-full w-full justify-start" className="group flex h-10 min-w-[122px] shrink-0 items-center rounded-full bg-white/[0.045] p-1 pr-3 text-white hover:bg-white/[0.075] md:h-[46px] md:min-w-[150px] md:p-1.5 md:pr-4">
+                  <span className="mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/[0.07] text-white/54 transition-colors group-hover:text-white/90 md:mr-3 md:h-[34px] md:w-[34px]"><FileCode weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className="font-sans text-[10px] font-black uppercase tracking-widest text-white/90 md:text-[11px]">Generate</strong><small className="hidden font-sans text-[8px] font-bold uppercase tracking-widest text-white/40 min-[420px]:block">SDK policy</small></span>
+                </MagneticFillButton>
+                <MagneticFillButton
+                  type="button"
+                  onClick={saveChanges}
+                  disabled={!dirty}
+                  fillClassName="bg-[#A01016]"
+                  contentClassName="h-full w-full justify-start"
+                  className={[
+                    'group flex h-10 min-w-[102px] shrink-0 items-center rounded-full p-1 pr-3 disabled:pointer-events-none md:h-[46px] md:min-w-[130px] md:p-1.5 md:pr-4',
+                    dirty
+                      ? 'bg-white/[0.075] text-white hover:bg-white/[0.105]'
+                      : 'bg-white/[0.018] text-white/34 opacity-55',
+                  ].join(' ')}
+                >
+                  <span className={['mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full transition-colors md:mr-3 md:h-[34px] md:w-[34px]', dirty ? 'bg-white/[0.08] text-white/78 group-hover:text-white' : 'bg-white/[0.035] text-white/22'].join(' ')}><FloppyDisk weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className={['font-sans text-[10px] font-black uppercase tracking-widest md:text-[11px]', dirty ? 'text-white/95' : 'text-white/38'].join(' ')}>Save</strong><small className={['hidden font-sans text-[8px] font-bold uppercase tracking-widest min-[420px]:block', dirty ? 'text-white/48' : 'text-white/22'].join(' ')}>Draft</small></span>
+                </MagneticFillButton>
+                <MagneticFillButton
+                  type="button"
+                  onClick={publish}
+                  disabled={!unpublished}
+                  fillClassName="bg-[#A01016]"
+                  contentClassName="h-full w-full justify-start"
+                  className={[
+                    'group flex h-10 min-w-[112px] shrink-0 items-center rounded-full p-1 pr-3 disabled:pointer-events-none md:h-[46px] md:min-w-[140px] md:p-1.5 md:pr-4',
+                    unpublished
+                      ? 'bg-[#A01016] text-white hover:bg-[#bd151d]'
+                      : 'bg-white/[0.018] text-white/34 opacity-55',
+                  ].join(' ')}
+                >
+                  <span className={['mr-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-full transition-colors md:mr-3 md:h-[34px] md:w-[34px]', unpublished ? 'bg-white/12 text-white group-hover:bg-white/18' : 'bg-white/[0.035] text-white/22'].join(' ')}><ArrowRight weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className={['font-sans text-[10px] font-black uppercase tracking-widest md:text-[11px]', unpublished ? 'text-white' : 'text-white/38'].join(' ')}>Publish</strong><small className={['hidden font-sans text-[8px] font-bold uppercase tracking-widest min-[420px]:block', unpublished ? 'text-white/62' : 'text-white/22'].join(' ')}>Move live</small></span>
+                </MagneticFillButton>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div
+          data-permission-scroll
+          className="access-scroll relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-transparent"
+        >
+          <div ref={viewPanelRef} className="relative w-full min-w-0">
+            {activeView === 'permissions' ? (
+              <CapabilitySurface
+                selectedId={selectedCapability}
+                focusedLabel={focused.label}
+                grants={focusedGrants}
+                editing={dirty}
+                requestedOpenGroup={requestedOpenGroup}
+                onSelect={focusCapability}
+                onToggle={toggleScope}
+              />
+            ) : null}
+
+            {activeView === 'test' ? (
+              <SimulationLane entityLabel={focused.label} grants={effectiveGrants} />
+            ) : null}
+
+            {activeView === 'topology' ? (
+              <AccessTopology
+                entity={focused}
+                grants={effectiveGrants}
+                selectedGroup={selectedGroup}
+                onOpenGroup={(groupId) => {
+                  const group = SCOPE_GROUPS.find((item) => item.id === groupId);
+                  if (group?.scopes[0]) focusCapability(group.id, group.scopes[0].id);
+                  else {
+                    setSelectedGroup(groupId);
+                    setActiveView('permissions');
+                  }
+                  requestPermissionGroupOpen(groupId);
+                  scrollPermissionGroupIntoView(groupId);
+                }}
+              />
+            ) : null}
           </div>
         </div>
+      </section>
 
-        <div className="access-scroll flex h-9 items-center gap-4 overflow-x-auto border-t border-white/[0.06] bg-white/[0.018] px-4 font-mono text-[9px] uppercase tracking-[0.16em] text-white/28 sm:px-5 lg:px-6">
-          <Metric label="SDK version" value="v1.4.2" />
-          <Metric label="Active keys" value="3" />
-          <Metric label="Teams with access" value={String(entities.filter((entity) => entity.type === 'team').length)} />
-          <Metric label="Scopes granted" value={`${unionCount} / 18`} strong />
-          <span className="ml-auto hidden items-center gap-2 whitespace-nowrap text-emerald-300/55 lg:flex"><span className="live-dot h-1.5 w-1.5 bg-emerald-400" /> Policy engine online</span>
+      <PermissionInspector
+        entity={focused}
+        grants={effectiveGrants}
+        lastChanged={lastChanged}
+        history={history}
+        generationKey={generationKey}
+        width={inspectorWidth}
+        onResizeStart={startResize}
+        mobileOpen={inspectorOpen}
+        onMobileClose={() => setInspectorOpen(false)}
+      />
+
+      {notice ? (
+        <div className="policy-notice fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 rounded-[14px] border px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.14em] sm:bottom-6">
+          {notice}
         </div>
-      </header>
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[220px_minmax(620px,1fr)_340px]">
-        <ScopeTree selectedScope={selectedScope} entities={entities} grants={grants} onSelect={setSelectedScope} />
-        <PermissionMatrix
-          selectedScope={selectedScope}
-          focusedEntity={focusedEntity}
-          entities={entities}
-          grants={grants}
-          onSelectScope={setSelectedScope}
-          onFocusEntity={setFocusedEntity}
-          onToggle={toggleScope}
-          onBulk={bulkAction}
-          onAddTeam={() => setShowAddTeam(true)}
-        />
-        <LivePreview entity={focused} grantedScopes={focusedGrants} lastChanged={lastChanged} />
-      </div>
+      ) : null}
 
       {pendingGrant ? (
         <CriticalGrantModal
@@ -156,39 +719,22 @@ export function ScopeManager() {
           }}
         />
       ) : null}
-
-      {showAddTeam ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={() => setShowAddTeam(false)}>
-          <form onSubmit={(event) => { event.preventDefault(); addTeam(); }} onMouseDown={(event) => event.stopPropagation()} className="vault-panel w-full max-w-md bg-[#0c0c0c] p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div><p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/30">Access entity</p><h2 className="mt-2 text-xl font-semibold">Add a team</h2></div>
-              <button type="button" onClick={() => setShowAddTeam(false)} aria-label="Close" className="grid h-8 w-8 place-items-center border border-white/12 text-white/40 hover:text-white"><X className="h-4 w-4" /></button>
-            </div>
-            <label className="mt-6 block font-mono text-[9px] uppercase tracking-[0.18em] text-white/35">Team name</label>
-            <input autoFocus value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="Platform Operations" className="mt-2 h-11 w-full border border-white/12 bg-black/35 px-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-white/40" />
-            <button type="submit" className="mt-4 flex h-10 w-full items-center justify-center gap-2 bg-white font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-black hover:bg-emerald-300"><Plus className="h-4 w-4" /> Add team</button>
-          </form>
-        </div>
-      ) : null}
     </main>
   );
 }
 
-function Metric({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <span className="flex shrink-0 items-center gap-2 whitespace-nowrap border-r border-white/10 pr-4"><span>{label}</span><strong className={strong ? 'font-medium text-white' : 'font-medium text-white/55'}>{value}</strong></span>;
-}
 
 function CriticalGrantModal({ scopeId, count, onCancel, onConfirm }: { scopeId: string; count: number; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/80 p-4 backdrop-blur-md" onMouseDown={onCancel}>
-      <div className="vault-panel w-full max-w-lg bg-[#0c0c0c] p-5 sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
-        <ShieldAlert className="h-8 w-8 text-red-300" strokeWidth={1.4} />
-        <p className="mt-5 font-mono text-[9px] uppercase tracking-[0.28em] text-red-300/65">Critical permission</p>
+    <div className="critical-grant-backdrop fixed inset-0 z-[110] grid place-items-center p-4" onMouseDown={onCancel}>
+      <div className="critical-grant-panel vault-panel w-full max-w-lg p-5 sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
+        <ShieldWarning className="h-8 w-8 text-red-300" weight="duotone" />
+        <p className="mt-5 font-mono text-[8px] uppercase tracking-[0.24em] text-red-300/65">Critical permission</p>
         <h2 className="mt-2 break-all font-mono text-xl font-semibold text-white">{scopeId}</h2>
-        <p className="mt-3 text-sm leading-6 text-white/45">This scope can mutate production access or credentials. You are granting it to {count} access {count === 1 ? 'entity' : 'entities'}.</p>
+        <p className="mt-3 text-sm leading-6 text-white/45">This permission can mutate production policy or credentials. It will be granted to {count} access {count === 1 ? 'entity' : 'entities'}.</p>
         <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="border border-white/15 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-white/50 hover:border-white/40 hover:text-white">Cancel</button>
-          <button type="button" onClick={onConfirm} className="flex items-center gap-2 border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-red-200 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" /> Confirm grant</button>
+          <MagneticFillButton type="button" onClick={onCancel} fillClassName="bg-[#A01016]" className="rounded-[12px] border border-white/15 bg-white/[0.02] px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-white/60 hover:border-[#A01016]/40 hover:text-white"><span>Cancel</span></MagneticFillButton>
+          <MagneticFillButton type="button" onClick={onConfirm} fillClassName="bg-[#A01016]" className="flex items-center gap-2 rounded-[12px] border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-red-100 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" weight="bold" /> <span>Confirm grant</span></MagneticFillButton>
         </div>
       </div>
     </div>

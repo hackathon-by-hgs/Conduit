@@ -1,9 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_SEND_FILTERS } from '@/lib/filters';
+import { TelemetryPageHeader } from '@/app/_components/telemetry-page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { StatsCards } from '@/features/stats/components/stats-cards';
+import { DEFAULT_SEND_FILTERS } from '@/lib/filters';
 import { sendsQueryOptions } from '../api/get-sends';
 import { DlqTable } from './dlq-table';
 
@@ -11,10 +12,16 @@ export function DlqView() {
   const { data, isLoading, isError, error } = useQuery(sendsQueryOptions(DEFAULT_SEND_FILTERS));
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-lg font-semibold">Dead-letter queue</h1>
+    <section className="flex flex-col gap-4">
+      <TelemetryPageHeader
+        eyebrow="DLQ / RECOVERY"
+        title="Delivery Recovery"
+        description="Review terminal delivery failures and control deliberate replay operations."
+        status="Replay control"
+        metric={data ? { label: 'Queued sends', value: data.items.length } : undefined}
+      />
       <StatsCards />
-      {isLoading ? <LoadingState /> : null}
+      {isLoading ? <LoadingState label="Loading delivery telemetry" /> : null}
       {isError ? <ErrorState error={error} /> : null}
       {data ? (
         data.items.length ? (
