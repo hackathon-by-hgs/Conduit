@@ -1,27 +1,24 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { useGSAP } from '@gsap/react';
+import { useRef, useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import {
   ArrowRight,
-  Bell,
+  CaretUpDown,
   Check,
   FileCode,
   FloppyDisk,
+  IdentificationBadge,
   MagnifyingGlass,
-  Power,
   ShieldWarning,
+  UserCircle,
 } from '@phosphor-icons/react';
 import { ALL_SCOPES, ENTITIES, INITIAL_GRANTS, SCOPE_GROUPS, getScope, type AccessEntity } from './access-data';
-import { CAPABILITIES } from './control-data';
 import { PermissionInspector, useInspectorResize, type InspectorEvent } from './permission-inspector';
 import { AccessTopology } from './access-topology';
 import { CapabilitySurface } from './capability-surface';
 import { ScopeViewSwitcher, type ScopeView } from './scope-view-switcher';
 import { SimulationLane } from './simulation-lane';
-
-gsap.registerPlugin(useGSAP);
 
 type PendingGrant = { scopeId: string; entityIds: string[] } | null;
 
@@ -43,10 +40,23 @@ export function ScopeManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedEntity, setFocusedEntity] = useState('team-alpha');
   const [connected, setConnected] = useState(true);
+  const [entityDropdownOpen, setEntityDropdownOpen] = useState(false);
+  const entityDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!entityDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (entityDropdownRef.current && !entityDropdownRef.current.contains(e.target as Node)) {
+        setEntityDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [entityDropdownOpen]);
   const [lastChanged, setLastChanged] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [unpublished, setUnpublished] = useState(false);
-  const [lastSaved, setLastSaved] = useState('2m ago');
+  const [_lastSaved, setLastSaved] = useState('2m ago');
   const [pendingGrant, setPendingGrant] = useState<PendingGrant>(null);
   const [history, setHistory] = useState<InspectorEvent[]>(INITIAL_HISTORY);
   const [notice, setNotice] = useState<string | null>(null);
@@ -56,18 +66,6 @@ export function ScopeManager() {
   const focused = entities.find((entity) => entity.id === focusedEntity) ?? entities[0];
   const focusedGrants = grants[focused.id] ?? [];
   const effectiveGrants = connected ? focusedGrants : [];
-  useGSAP(
-    () => {
-      gsap.from('[data-command-head] > *', {
-        y: 8,
-        opacity: 0.84,
-        stagger: 0.08,
-        duration: 0.52,
-        ease: 'power3.out',
-      });
-    },
-    { scope: rootRef },
-  );
 
   const focusCapability = (capabilityId: string, scopeId: string) => {
     setSelectedCapability(capabilityId);
@@ -99,24 +97,17 @@ export function ScopeManager() {
     const scope = ALL_SCOPES.find((item) => (
       item.id.toLowerCase().includes(query) || item.description.toLowerCase().includes(query)
     ));
-    const capability = CAPABILITIES.find((item) => (
-      item.title.toLowerCase().includes(query)
+    const group = SCOPE_GROUPS.find((item) => (
+      item.label.toLowerCase().includes(query)
       || item.id.toLowerCase().includes(query)
-      || item.scopes.some((scopeId) => scopeId.includes(query))
-      || (scope ? item.scopes.includes(scope.id) : false)
+      || item.scopes.some((itemScope) => itemScope.id.includes(query))
+      || (scope ? item.scopes.some((itemScope) => itemScope.id === scope.id) : false)
     ));
-
-    if (capability) {
-      focusCapability(capability.id, scope?.id ?? capability.scopes[0]);
-      setSearchQuery('');
-      showNotice(`Focused ${capability.title}`);
-      return;
-    }
-
-    const group = SCOPE_GROUPS.find((item) => item.label.toLowerCase().includes(query));
     if (group) {
-      const mappedCapability = CAPABILITIES.find((item) => item.scopes.includes(group.scopes[0].id));
-      focusCapability(mappedCapability?.id ?? selectedCapability, group.scopes[0].id);
+      const matchedScope = scope && group.scopes.some((item) => item.id === scope.id)
+        ? scope.id
+        : group.scopes[0].id;
+      focusCapability(group.id, matchedScope);
       setSearchQuery('');
       showNotice(`Focused ${group.label}`);
       return;
@@ -171,7 +162,7 @@ export function ScopeManager() {
     applyGrant(scopeId, [entityId], !granted);
   };
 
-  const updateConnection = (nextConnected: boolean) => {
+  const _updateConnection = (nextConnected: boolean) => {
     setConnected(nextConnected);
     setUnpublished(true);
     setDirty(true);
@@ -225,24 +216,26 @@ export function ScopeManager() {
   const status = dirty ? 'Draft' : unpublished ? 'Saved' : 'Synced';
 
   return (
-    <main ref={rootRef} className="scope-manager flex min-h-[calc(100dvh-48px)] w-full min-w-0 max-w-full flex-col overflow-x-hidden sm:min-h-[calc(100dvh-26px)] xl:h-[calc(100dvh-26px)] xl:flex-row xl:overflow-hidden">
-      <section className="scope-primary-pane flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="os-command-chassis command-chassis relative z-20 shrink-0">
-          <div data-command-head className="sdk-os-header">
-            <div className="os-product-heading">
-              <span>Control center</span>
-              <h1>SDK Policy Engine</h1>
+    <main ref={rootRef} className="relative flex min-h-[calc(100dvh-116px)] min-w-0 max-w-full flex-col overflow-hidden rounded-r-[28px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/94 to-black/96 sm:min-h-[calc(100dvh-24px)] xl:h-[calc(100dvh-24px)] xl:flex-row">
+      <section className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-visible xl:rounded-l-[28px]">
+        <header className="relative z-[120] shrink-0 overflow-visible border-b border-white/[0.07] bg-gradient-to-r from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+          <div data-command-head className="relative z-[130] grid min-h-[76px] grid-cols-1 items-center gap-[14px] px-5 py-3.5 md:grid-cols-[auto_minmax(260px,1fr)_auto] md:gap-[18px]">
+            <div className="min-w-[190px]">
+              {/* <span>Control center</span> */}
+              <h1 className="mt-1.5 font-sans text-[19px] font-semibold text-[#f5faf7]">SDK Policy Engine</h1>
             </div>
 
             <form
-              className="os-capability-search"
+              className="group relative grid h-12 items-center gap-2.5 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3 transition-colors duration-200 focus-within:border-[#A01016]/45 focus-within:bg-white/[0.055]"
+              style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto' }}
               onSubmit={(event) => {
                 event.preventDefault();
                 executeSearch();
               }}
             >
-              <MagnifyingGlass weight="bold" />
+              <MagnifyingGlass weight="bold" className="h-[17px] w-[17px] text-[#e2f0e7]/50" />
               <input
+                className="w-full min-w-0 bg-transparent text-[13px] font-sans text-[#f4faf6] outline-none placeholder:text-[#e2f0e7]/30"
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -250,22 +243,123 @@ export function ScopeManager() {
                 aria-label="Search SDK capabilities"
                 list="sdk-capability-options"
               />
-              <kbd>Enter</kbd>
+              <kbd className="font-mono text-[8px] uppercase tracking-[0.08em] text-[#e2f0e7]/30">Enter</kbd>
               <datalist id="sdk-capability-options">
-                {CAPABILITIES.map((capability) => <option key={capability.id} value={capability.title} />)}
+                {SCOPE_GROUPS.map((group) => <option key={group.id} value={group.label} />)}
                 {ALL_SCOPES.map((scope) => <option key={scope.id} value={scope.id} />)}
                 {entities.map((entity) => <option key={entity.id} value={entity.label} />)}
               </datalist>
             </form>
 
-            <div className="os-header-context">
-              <label className="os-entity-control">
-                <span>Entity</span>
-                <select value={focused.id} onChange={(event) => setFocusedEntity(event.target.value)}>
-                  {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.label}</option>)}
-                </select>
-              </label>
-              <button
+            <div className="flex items-center gap-2">
+              {/* ── Custom entity dropdown ─────────────────────── */}
+              <div ref={entityDropdownRef} className="relative z-[150]">
+                {/* Trigger */}
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={entityDropdownOpen}
+                  onClick={() => setEntityDropdownOpen((o) => !o)}
+                  className={[
+                    'group flex h-[46px] min-w-[168px] items-center gap-2.5 rounded-full px-3.5 transition-colors duration-200',
+                    entityDropdownOpen
+                      ? 'bg-white/[0.07]'
+                      : 'bg-white/[0.035] hover:bg-white/[0.055]',
+                  ].join(' ')}
+                >
+                  {/* Entity-type icon badge */}
+                  <span className={[
+                    'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
+                    focused.type === 'team'
+                      ? 'bg-[#A01016]/12 text-[#d14a51]'
+                      : 'bg-white/[0.045] text-white/55',
+                  ].join(' ')}>
+                    {focused.type === 'team'
+                      ? <UserCircle weight="fill" className="h-[18px] w-[18px]" />
+                      : <IdentificationBadge weight="fill" className="h-[18px] w-[18px]" />}
+                  </span>
+
+                  {/* Label */}
+                  <span className="flex min-w-0 flex-1 flex-col text-left">
+                    <span className="font-mono text-[7.5px] font-bold uppercase tracking-[0.2em] text-white/30">Entity</span>
+                    <span className="mt-0.5 truncate font-sans text-[13px] font-bold leading-none text-white">{focused.label}</span>
+                  </span>
+
+                  {/* Caret */}
+                  <CaretUpDown
+                    weight="bold"
+                    className={['h-3.5 w-3.5 flex-shrink-0 transition-all duration-200', entityDropdownOpen ? 'text-white/60' : 'text-white/25'].join(' ')}
+                  />
+                </button>
+
+                {/* Floating panel */}
+                {entityDropdownOpen && (
+                  <div
+                    role="listbox"
+                    aria-label="Select entity"
+                    className="absolute left-0 top-[calc(100%+8px)] z-[220] min-w-[210px] overflow-hidden rounded-2xl bg-black/92 shadow-[0_18px_54px_rgba(0,0,0,0.68),0_0_0_1px_rgba(255,255,255,0.045)] backdrop-blur-xl"
+                  >
+                    {/* Panel header */}
+                    <div className="border-b border-white/[0.06] px-3.5 py-2.5">
+                      <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/30">
+                        Select access entity
+                      </p>
+                    </div>
+
+                    {/* Options */}
+                    <div className="p-1.5">
+                      {entities.map((entity) => {
+                        const active = entity.id === focused.id;
+                        return (
+                          <button
+                            key={entity.id}
+                            type="button"
+                            role="option"
+                            aria-selected={active}
+                            onClick={() => { setFocusedEntity(entity.id); setEntityDropdownOpen(false); }}
+                            className={[
+                              'group flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all duration-150',
+                              active
+                                ? 'bg-[#a01016]/10 text-white'
+                                : 'text-white/60 hover:bg-white/[0.05] hover:text-white',
+                            ].join(' ')}
+                          >
+                            {/* Icon */}
+                            <span className={[
+                              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl transition-colors',
+                              active
+                                ? (entity.type === 'team'
+                                    ? 'bg-[#A01016]/12 text-[#d14a51]'
+                                    : 'bg-white/[0.06] text-white/70')
+                                : 'bg-white/[0.025] text-white/30 group-hover:text-white/55',
+                            ].join(' ')}>
+                              {entity.type === 'team'
+                                ? <UserCircle weight="fill" className="h-[18px] w-[18px]" />
+                                : <IdentificationBadge weight="fill" className="h-[18px] w-[18px]" />}
+                            </span>
+
+                            {/* Text */}
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <strong className="block truncate font-sans text-[12px] font-semibold leading-tight">
+                                {entity.label}
+                              </strong>
+                              <span className="mt-0.5 font-mono text-[8.5px] text-white/30">
+                                {entity.type === 'team' ? 'Team' : 'API Key'}
+                              </span>
+                            </span>
+
+                            {/* Active checkmark */}
+                            {active && (
+                              <Check weight="bold" className="h-3.5 w-3.5 flex-shrink-0 text-[#a01016]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* <button
                 type="button"
                 className="os-notification-command"
                 aria-label="Show policy notifications"
@@ -273,42 +367,31 @@ export function ScopeManager() {
               >
                 <Bell weight="bold" />
                 <span>{history.length}</span>
-              </button>
+              </button> */}
             </div>
           </div>
 
-          <div className="os-policy-toolbar">
-            <div className="os-policy-readouts access-scroll">
-              <Metric label="SDK version" value="v1.4.2" />
-              <Metric label="Saved" value={lastSaved} />
-              <Metric label="Changes" value={dirty ? '01' : '00'} strong={dirty} />
-              <button
-                type="button"
-                className={`os-live-control ${connected ? 'is-live' : ''}`}
-                onClick={() => updateConnection(!connected)}
-              >
-                <Power weight="bold" /> {connected ? 'Live' : 'Paused'}
-              </button>
-            </div>
+          <div className="flex min-h-[58px] flex-col items-stretch justify-center gap-3 px-5 py-3 md:flex-row md:items-center md:justify-between md:py-1.5">
+            <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
 
-            <div className="command-actions flex flex-wrap items-center gap-2">
-              <span data-status-label className={`command-status-chip is-${status.toLowerCase()}`}>
-                <span className="command-status-beacon"><Check weight="bold" /></span>
-                <span><small>Policy</small><strong>{status}</strong></span>
+            <div className="flex w-full flex-col gap-2 md:ml-auto md:w-auto md:flex-row md:flex-nowrap md:items-center">
+              <span data-status-label className="flex h-[46px] min-w-[120px] items-center rounded-full bg-[#A01016]/10 p-1.5 pr-4 transition-opacity">
+                <span className="mr-3 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/5 text-white/50"><Check weight="bold" /></span>
+                <span className="flex flex-col justify-center"><small className="font-sans text-[10px] font-semibold text-white/40">Policy</small><strong className="font-sans text-[12px] font-bold text-[#A01016]">{status}</strong></span>
               </span>
 
-              <div className="command-dock flex flex-wrap items-center">
-                <button type="button" onClick={generatePolicy} className="command-button">
-                  <span className="command-button-icon"><FileCode weight="bold" /></span>
-                  <span className="command-button-copy"><strong>Generate</strong><small>SDK policy</small></span>
+              <div className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap md:items-center">
+                <button type="button" onClick={generatePolicy} className="group flex h-[46px] min-w-[150px] items-center rounded-full bg-white/[0.035] p-1.5 pr-4 transition-colors hover:bg-white/[0.06] md:min-w-[150px]">
+                  <span className="mr-3 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/5 text-white/40 transition-colors group-hover:text-white/80"><FileCode weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className="font-sans text-[11px] font-black uppercase tracking-widest text-white/90">Generate</strong><small className="font-sans text-[8px] font-bold uppercase tracking-widest text-white/40">SDK policy</small></span>
                 </button>
-                <button type="button" onClick={saveChanges} disabled={!dirty} className="command-button">
-                  <span className="command-button-icon"><FloppyDisk weight="bold" /></span>
-                  <span className="command-button-copy"><strong>Save</strong><small>Draft</small></span>
+                <button type="button" onClick={saveChanges} disabled={!dirty} className="group flex h-[46px] min-w-[120px] items-center rounded-full bg-white/[0.035] p-1.5 pr-4 transition-colors disabled:pointer-events-none disabled:opacity-50 hover:bg-white/[0.06] md:min-w-[130px]">
+                  <span className="mr-3 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/5 text-white/40 transition-colors group-hover:text-white/80"><FloppyDisk weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className="font-sans text-[11px] font-black uppercase tracking-widest text-white/90">Save</strong><small className="font-sans text-[8px] font-bold uppercase tracking-widest text-white/40">Draft</small></span>
                 </button>
-                <button type="button" onClick={publish} disabled={!unpublished} className={`command-button is-primary ${unpublished ? 'publish-ready' : ''}`}>
-                  <span className="command-button-icon"><ArrowRight weight="bold" /></span>
-                  <span className="command-button-copy"><strong>Publish</strong><small>Move live</small></span>
+                <button type="button" onClick={publish} disabled={!unpublished} className="group flex h-[46px] min-w-[140px] items-center rounded-full bg-white/[0.035] p-1.5 pr-4 transition-colors disabled:pointer-events-none disabled:opacity-50 hover:bg-white/[0.06] md:min-w-[140px]">
+                  <span className="mr-3 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/5 text-white/40 transition-colors group-hover:text-white/80"><ArrowRight weight="bold" /></span>
+                  <span className="flex flex-col justify-center text-left"><strong className="font-sans text-[11px] font-black uppercase tracking-widest text-white/90">Publish</strong><small className="font-sans text-[8px] font-bold uppercase tracking-widest text-white/40">Move live</small></span>
                 </button>
               </div>
             </div>
@@ -316,11 +399,9 @@ export function ScopeManager() {
         </header>
 
         <div
-          className="sdk-main-surface control-workspace access-scroll relative min-w-0 flex-1 overflow-y-auto"
+          className="access-scroll relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-transparent"
         >
-          <div className="scope-workspace-content relative w-full min-w-0">
-            <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
-
+          <div className="relative w-full min-w-0">
             {activeView === 'permissions' ? (
               <CapabilitySurface
                 selectedId={selectedCapability}
@@ -384,9 +465,6 @@ export function ScopeManager() {
   );
 }
 
-function Metric({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <span className="flex shrink-0 items-center gap-2 whitespace-nowrap border-r border-white/10 pr-4"><span>{label}</span><strong className={strong ? 'font-medium text-white' : 'font-medium text-white/55'}>{value}</strong></span>;
-}
 
 function CriticalGrantModal({ scopeId, count, onCancel, onConfirm }: { scopeId: string; count: number; onCancel: () => void; onConfirm: () => void }) {
   return (

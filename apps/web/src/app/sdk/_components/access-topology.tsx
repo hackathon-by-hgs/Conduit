@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, type CSSProperties } from 'react';
+import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
 import { Graph, Key, UsersThree } from '@phosphor-icons/react';
+import { gsap } from 'gsap';
 import { SCOPE_GROUPS, type AccessEntity } from './access-data';
 import { ENDPOINTS } from './control-data';
 
@@ -16,17 +16,33 @@ type AccessTopologyProps = {
   onOpenGroup: (groupId: string) => void;
 };
 
-const STAGE = { width: 820, height: 550 };
-const ENTITY = { x: 22, y: 222, width: 176, height: 106 };
-const GROUP = { x: 300, width: 190, height: 70 };
-const GROUP_TOPS = [48, 146, 244, 342, 440];
-const ENDPOINT = { x: 600, width: 198, height: 52 };
-const ENDPOINT_TOPS = [42, 112, 182, 252, 322, 392, 462];
+const STAGE = { width: 1040, height: 590 };
+const ENTITY = { x: 24, y: 242, width: 180, height: 106 };
+const GROUP = { x: 342, width: 210, height: 72 };
+const GROUP_TOPS = [58, 160, 262, 364, 466];
+const ENDPOINT = { x: 720, width: 240, height: 56 };
+const ENDPOINT_TOPS = [52, 128, 204, 280, 356, 432, 508];
 
 const ENDPOINT_GROUPS = ENDPOINTS.map((endpoint) => (
   SCOPE_GROUPS.find((group) => group.scopes.some((scope) => scope.id === endpoint.scope))?.id
   ?? SCOPE_GROUPS[0].id
 ));
+
+function frameStyle(frame: { x: number; y: number; width: number; height: number }) {
+  return {
+    left: `${(frame.x / STAGE.width) * 100}%`,
+    top: `${(frame.y / STAGE.height) * 100}%`,
+    width: `${(frame.width / STAGE.width) * 100}%`,
+    height: `${(frame.height / STAGE.height) * 100}%`,
+  };
+}
+
+function connectionClass(active: boolean, selected: boolean) {
+  return [
+    'fill-none transition-[stroke,opacity] duration-200 [stroke-linecap:round] [stroke-width:2] [vector-effect:non-scaling-stroke]',
+    selected ? 'stroke-[#A01016]/80 [stroke-dasharray:8_8]' : active ? 'stroke-[#A01016]/45' : 'stroke-white/10',
+  ].join(' ');
+}
 
 export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: AccessTopologyProps) {
   const rootRef = useRef<HTMLElement>(null);
@@ -42,56 +58,55 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
   useGSAP(
     () => {
       const paths = gsap.utils.toArray<SVGPathElement>('[data-topology-path]');
-      const nodes = gsap.utils.toArray<HTMLElement>('[data-topology-node]');
 
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        gsap.set([...paths, ...nodes], { clearProps: 'all' });
+        gsap.set(paths, { clearProps: 'strokeDasharray,strokeDashoffset,opacity' });
         return;
       }
 
-      nodes.forEach((node, index) => {
-        gsap.fromTo(
-          node,
-          { opacity: 0, y: 10, scale: 0.97 },
-          { opacity: 1, y: 0, scale: 1, duration: 0.42, delay: index * 0.035, ease: 'power3.out' },
-        );
-      });
-
       paths.forEach((path, index) => {
         const length = path.getTotalLength();
-        gsap.set(path, { strokeDasharray: length, strokeDashoffset: length, opacity: 0.25 });
-        gsap.to(path, {
-          strokeDashoffset: 0,
-          opacity: 1,
-          duration: 0.7,
-          delay: 0.12 + index * 0.028,
-          ease: 'power2.inOut',
-          onComplete: () => gsap.set(path, { clearProps: 'strokeDasharray,strokeDashoffset' }),
-        });
+
+        // Animation intent: redraw only the tree connections so topology feels alive without reintroducing node stagger/scroll jank.
+        gsap.fromTo(
+          path,
+          { strokeDasharray: length, strokeDashoffset: length, opacity: 0.28 },
+          {
+            strokeDashoffset: 0,
+            opacity: 1,
+            duration: 0.68,
+            delay: index * 0.018,
+            ease: 'power2.inOut',
+            onComplete: () => gsap.set(path, { clearProps: 'strokeDasharray,strokeDashoffset' }),
+          },
+        );
       });
     },
-    { scope: rootRef, dependencies: [entity.id, grantsKey] },
+    { scope: rootRef, dependencies: [entity.id, selectedGroup, grantsKey] },
   );
 
   return (
-    <section ref={rootRef} className="simple-access-topology">
-      <div className="simple-section-heading">
+    <section ref={rootRef} className="w-full bg-transparent p-5 sm:p-6">
+      <div className="mb-[18px] flex flex-wrap items-end justify-between gap-6 border-b border-white/[0.07] pb-[18px]">
         <div>
-          <p>Access topology</p>
-          <h2>See what this identity can reach</h2>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Access topology</p>
+          <h2 className="mt-[5px] font-sans text-[26px] font-semibold leading-[1.08] tracking-[-0.015em] text-white/90">See what this identity can reach</h2>
         </div>
-        <span>{activeEndpointCount} of {ENDPOINTS.length} routes open</span>
+        <span className="whitespace-nowrap font-mono text-[9px] text-white/40">{activeEndpointCount} of {ENDPOINTS.length} routes open</span>
       </div>
 
-      <div className="topology-scroll access-scroll">
-        <div className="topology-stage" style={{ width: STAGE.width, height: STAGE.height }}>
-          <div className="topology-column-label" style={{ left: ENTITY.x, top: 16 }}>Identity</div>
-          <div className="topology-column-label" style={{ left: GROUP.x, top: 16 }}>Permission groups</div>
-          <div className="topology-column-label" style={{ left: ENDPOINT.x, top: 16 }}>API routes</div>
+      <div className="access-scroll w-full max-w-full overflow-y-hidden overflow-x-auto rounded-[22px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-4">
+        <div
+          className="relative h-[590px] w-full min-w-[920px] overflow-hidden rounded-[18px] !bg-black/[0.18]"
+        >
+          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(ENTITY.x / STAGE.width) * 100}%`, top: 16 }}>Identity</div>
+          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(GROUP.x / STAGE.width) * 100}%`, top: 16 }}>Permission groups</div>
+          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(ENDPOINT.x / STAGE.width) * 100}%`, top: 16 }}>API routes</div>
 
           <svg
-            className="topology-connections"
+            className="absolute inset-0 z-[1] h-full w-full"
             viewBox={`0 0 ${STAGE.width} ${STAGE.height}`}
+            preserveAspectRatio="none"
             aria-hidden="true"
           >
             {groupStates.map((group) => {
@@ -101,8 +116,8 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 <path
                   key={`entity-${group.id}`}
                   data-topology-path
-                  className={`topology-path ${isActive ? 'is-active' : ''} ${selectedGroup === group.id ? 'is-selected' : ''}`}
-                  d={`M ${ENTITY.x + ENTITY.width} ${ENTITY.y + ENTITY.height / 2} C 242 ${ENTITY.y + ENTITY.height / 2}, 250 ${targetY}, ${GROUP.x} ${targetY}`}
+                  className={connectionClass(isActive, selectedGroup === group.id)}
+                  d={`M ${ENTITY.x + ENTITY.width} ${ENTITY.y + ENTITY.height / 2} C ${ENTITY.x + ENTITY.width + 74} ${ENTITY.y + ENTITY.height / 2}, ${GROUP.x - 74} ${targetY}, ${GROUP.x} ${targetY}`}
                 />
               );
             })}
@@ -117,75 +132,106 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 <path
                   key={`${endpoint.method}-${endpoint.path}`}
                   data-topology-path
-                  className={`topology-path ${isActive ? 'is-active' : ''} ${selectedGroup === groupId ? 'is-selected' : ''}`}
-                  d={`M ${GROUP.x + GROUP.width} ${sourceY} C 536 ${sourceY}, 550 ${targetY}, ${ENDPOINT.x} ${targetY}`}
+                  className={connectionClass(isActive, selectedGroup === groupId)}
+                  d={`M ${GROUP.x + GROUP.width} ${sourceY} C ${GROUP.x + GROUP.width + 88} ${sourceY}, ${ENDPOINT.x - 88} ${targetY}, ${ENDPOINT.x} ${targetY}`}
                 />
               );
             })}
           </svg>
 
           <div
-            data-topology-node
-            className="topology-origin"
-            style={{ left: ENTITY.x, top: ENTITY.y, width: ENTITY.width, height: ENTITY.height }}
+            className="absolute z-[3] flex flex-col justify-center rounded-[18px] !bg-[#A01016] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.32)]"
+            style={frameStyle(ENTITY)}
           >
-            <span>Selected identity</span>
-            <div>
-              {entity.type === 'team' ? <UsersThree weight="duotone" /> : <Key weight="duotone" />}
-              <strong>{entity.label}</strong>
+            <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/70">Simulating</span>
+            <div className="my-[7px] flex items-center gap-[10px]">
+              <UsersThree weight="duotone" className="h-5 w-5" />
+              <strong className="text-[17px] leading-none">{entity.label}</strong>
             </div>
-            <small>{grants.length} effective permissions</small>
+            <small className="font-mono text-[9px] text-white/80">{entity.type}</small>
           </div>
 
-          {groupStates.map((group, index) => (
-            <button
-              key={group.id}
-              type="button"
-              data-topology-node
-              onClick={() => onOpenGroup(group.id)}
-              className={`topology-group-node ${group.activeCount ? 'is-active' : ''} ${selectedGroup === group.id ? 'is-selected' : ''}`}
-              style={{ left: GROUP.x, top: group.top, width: GROUP.width, height: GROUP.height }}
-            >
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <strong>{group.label}</strong>
-                <small>{group.activeCount} / {group.scopes.length} permissions</small>
-              </div>
-              <i style={{ '--topology-fill': `${(group.activeCount / group.scopes.length) * 100}%` } as CSSProperties} />
-            </button>
-          ))}
-
-          {ENDPOINTS.map((endpoint, index) => {
-            const groupId = ENDPOINT_GROUPS[index];
-            const isActive = activeScopes.has(endpoint.scope);
+          {groupStates.map((group) => {
+            const isActive = group.activeCount > 0;
+            const isSelected = group.id === selectedGroup;
             return (
               <button
-                key={`${endpoint.method}-${endpoint.path}`}
+                key={group.id}
                 type="button"
-                data-topology-node
-                onClick={() => onOpenGroup(groupId)}
-                className={`topology-endpoint-node ${isActive ? 'is-active' : ''}`}
-                style={{ left: ENDPOINT.x, top: ENDPOINT_TOPS[index], width: ENDPOINT.width, height: ENDPOINT.height }}
+                onClick={() => onOpenGroup(group.id)}
+                className={[
+                  'absolute z-[3] grid items-center gap-3 overflow-hidden rounded-[18px] border border-transparent px-[15px] py-[11px] text-left transition-[background-color,border-color,color] duration-200',
+                  'hover:bg-black/55 hover:text-white',
+                  isSelected
+                    ? '!border-[#A01016] !bg-black/65 !text-white shadow-[0_16px_34px_rgba(0,0,0,0.34)]'
+                    : isActive
+                      ? '!bg-black/45 !text-white/85'
+                      : '!bg-black/25 !text-white/45',
+                ].join(' ')}
+                style={{
+                  gridTemplateColumns: '28px 1fr',
+                  ...frameStyle({ x: GROUP.x, y: group.top, width: GROUP.width, height: GROUP.height }),
+                }}
               >
-                <span>{endpoint.method}</span>
+                <span className={['font-mono text-[10px]', isSelected ? 'text-white/70' : 'text-white/40'].join(' ')}>{group.id}</span>
                 <div>
-                  <strong>{endpoint.path}</strong>
-                  <small>{endpoint.scope}</small>
+                  <strong className={['block text-[14px]', isSelected ? 'text-white' : 'text-white/80'].join(' ')}>{group.label}</strong>
+                  <small className={['mt-[3px] block text-[10px]', isSelected ? 'text-white/65' : 'text-white/40'].join(' ')}>
+                    {group.activeCount} / {group.scopes.length} allowed
+                  </small>
                 </div>
-                <i>{isActive ? 'Open' : 'Blocked'}</i>
+                <i className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
+                  <span className="block h-full bg-[#A01016] transition-[width] duration-300" style={{ width: `${(group.activeCount / group.scopes.length) * 100}%` }} />
+                </i>
               </button>
             );
           })}
 
-          <Graph className="topology-watermark" weight="thin" aria-hidden="true" />
+          {ENDPOINTS.map((endpoint, index) => {
+            const isAllowed = activeScopes.has(endpoint.scope);
+            const parentGroup = ENDPOINT_GROUPS[index];
+            const isRelatedToSelected = parentGroup === selectedGroup;
+
+            return (
+              <div
+                key={`${endpoint.method}-${endpoint.path}`}
+                className={[
+                  'absolute z-[3] flex items-center justify-between rounded-[18px] border border-transparent px-[16px] transition-[background-color,border-color,color] duration-200',
+                  'hover:bg-black/55 hover:text-white',
+                  isAllowed
+                    ? '!bg-black/45 !text-white/85'
+                    : '!bg-black/25 !text-white/45',
+                  isRelatedToSelected ? 'ring-1 ring-[#A01016]/70 ring-offset-2 ring-offset-black/80' : '',
+                ].join(' ')}
+                style={{
+                  ...frameStyle({ x: ENDPOINT.x, y: ENDPOINT_TOPS[index], width: ENDPOINT.width, height: ENDPOINT.height }),
+                }}
+              >
+                <div className="flex min-w-0 flex-col">
+                  <strong className="truncate text-[13px] text-white/80">{endpoint.path.split('/').pop()}</strong>
+                  <small className="mt-[2px] truncate font-mono text-[9px] text-white/40">{endpoint.method} {endpoint.path}</small>
+                </div>
+                <i className={['ml-3 flex-shrink-0 text-white/25', isAllowed ? '!text-[#A01016]' : ''].join(' ')}>
+                  <Key weight={isAllowed ? 'fill' : 'regular'} className="h-[18px] w-[18px]" />
+                </i>
+              </div>
+            );
+          })}
+
+          <Graph className="pointer-events-none absolute bottom-4 left-4 h-24 w-24 text-white/[0.03]" weight="thin" aria-hidden="true" />
         </div>
       </div>
 
-      <footer className="topology-legend">
-        <span><i className="is-active" /> Effective access</span>
-        <span><i /> Unavailable route</span>
-        <strong>Select a node to edit its permissions</strong>
-      </footer>
+      <div className="mt-4 flex items-center gap-6 px-[10px]">
+        <div className="flex items-center gap-2">
+          <span className="block h-0.5 w-6 bg-[#A01016]/70" />
+          <strong className="font-sans text-[11px] font-medium text-white/40">Allowed route</strong>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="block h-0.5 w-6 bg-white/10" />
+          <span className="font-sans text-[11px] font-medium text-white/40">Blocked route</span>
+        </div>
+      </div>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { GAP_TYPE, type GapDto, type GapType } from '@conduit/contracts';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { reconcileQueryOptions } from '../api/get-reconcile';
 import { gapDeepLink } from '../deep-link';
@@ -42,6 +43,9 @@ function GapRow({ gap }: { gap: GapDto }) {
 
 export function ReconciliationView() {
   const { data, isLoading, isError, error } = useQuery(reconcileQueryOptions());
+
+  if (isLoading || !data) return <LoadingState />;
+  if (isError) return <ErrorState error={error} />;
 
   return (
     <section className="space-y-4">

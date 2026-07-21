@@ -1,11 +1,16 @@
 'use client';
 
-import { useRef, type MouseEvent as ReactMouseEvent } from 'react';
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import { CAPABILITIES } from './control-data';
-
-gsap.registerPlugin(useGSAP);
+import { useState } from 'react';
+import {
+  ArrowsClockwise,
+  Broadcast,
+  CaretDown,
+  ChartLineUp,
+  PaperPlaneTilt,
+  ShieldCheck,
+  type Icon,
+} from '@phosphor-icons/react';
+import { SCOPE_GROUPS, type ScopeDefinition, type ScopeGroup } from './access-data';
 
 type CapabilitySurfaceProps = {
   selectedId: string;
@@ -16,239 +21,319 @@ type CapabilitySurfaceProps = {
   onToggle: (scopeId: string) => void;
 };
 
-function getGrantCounts(grants: string[]) {
-  return Object.fromEntries(
-    CAPABILITIES.map((capability) => [
-      capability.id,
-      capability.scopes.filter((scope) => grants.includes(scope)).length,
-    ]),
-  );
-}
+const GROUP_ICONS: Record<string, Icon> = {
+  events: Broadcast,
+  sends: PaperPlaneTilt,
+  reconciliation: ArrowsClockwise,
+  stats: ChartLineUp,
+  admin: ShieldCheck,
+};
+
+const GROUP_DESCRIPTIONS: Record<string, string> = {
+  events: 'Read, filter, and stream event data.',
+  sends: 'Inspect delivery attempts and replay failed sends.',
+  reconciliation: 'Review gaps, reports, and audit evidence.',
+  stats: 'Read delivery metrics and export operational snapshots.',
+  admin: 'Manage webhooks, SDK access, and credentials.',
+};
+
+const PERMISSION_COPY: Record<string, { title: string; summary: string }> = {
+  'events:read': { title: 'Read Events', summary: 'Read normalized events and delivery state.' },
+  'events:stream': { title: 'Realtime Stream', summary: 'Consume live event updates from the stream.' },
+  'events:filter': { title: 'Filter History', summary: 'Query event history by source, status, and time.' },
+  'sends:read': { title: 'Inspect Sends', summary: 'Inspect outbound attempts and provider responses.' },
+  'sends:replay': { title: 'Replay Send', summary: 'Replay a failed delivery to its destination.' },
+  'sends:dlq:read': { title: 'Read Dead Letters', summary: 'Read deliveries held in the dead-letter queue.' },
+  'sends:dlq:replay': { title: 'Replay Dead Letters', summary: 'Replay dead-lettered deliveries individually or in bulk.' },
+  'reconcile:read': { title: 'Read Reports', summary: 'Read reconciliation reports across event and send records.' },
+  'reconcile:export': { title: 'Export Evidence', summary: 'Export reconciliation evidence for audit workflows.' },
+  'gaps:read': { title: 'Inspect Gaps', summary: 'Inspect missing, orphaned, and terminal gaps.' },
+  'gaps:deeplink': { title: 'Open Gap Trace', summary: 'Follow a gap into its underlying event record.' },
+  'stats:read': { title: 'Read Metrics', summary: 'Read aggregate delivery and reliability metrics.' },
+  'stats:export': { title: 'Export Metrics', summary: 'Export aggregate metrics for downstream analysis.' },
+  'webhooks:ingest': { title: 'Ingest Webhooks', summary: 'Submit signed webhooks into the ingestion layer.' },
+  'webhooks:configure': { title: 'Configure Webhooks', summary: 'Change webhook sources, secrets, and delivery policy.' },
+  'sdk:manage': { title: 'Manage SDK Policy', summary: 'Publish SDK permissions and manage access entities.' },
+  'keys:read': { title: 'Read API Keys', summary: 'Inspect API key metadata without revealing key material.' },
+  'keys:rotate': { title: 'Rotate API Keys', summary: 'Generate, revoke, and rotate production API keys.' },
+};
+
+const TOTAL_SCOPE_COUNT = SCOPE_GROUPS.reduce((total, group) => total + group.scopes.length, 0);
+
+const humanizeScopeId = (scopeId: string) =>
+  scopeId
+    .split(':')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
 export function CapabilitySurface(props: CapabilitySurfaceProps) {
   const { selectedId, focusedLabel, grants, editing, onSelect, onToggle } = props;
-  const rootRef = useRef<HTMLElement>(null);
-  const previousCountsRef = useRef<Record<string, number>>(getGrantCounts(grants));
-  const grantSignature = [...grants].sort().join('|');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
 
-  useGSAP(
-    () => {
-      const borderPaths = gsap.utils.toArray<SVGPathElement>('.capability-card-border');
-      borderPaths.forEach((path) => {
-        const length = path.getTotalLength();
-        gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
-      });
+  const handleAccessChange = (groupId: string, scopeId: string, nextGranted: boolean, currentlyGranted: boolean) => {
+    onSelect(groupId, scopeId);
+    if (nextGranted !== currentlyGranted) onToggle(scopeId);
+  };
 
-      const timeline = gsap.timeline({ defaults: { ease: 'power2.inOut' } });
-      timeline
-        .fromTo('[data-surface-trace="top"]', { scaleX: 0, transformOrigin: 'left center' }, { scaleX: 1, duration: 0.3 })
-        .fromTo('[data-surface-trace="right"]', { scaleY: 0, transformOrigin: 'top center' }, { scaleY: 1, duration: 0.25 }, '-=0.05')
-        .fromTo('.frame-col-divider', { scaleY: 0, transformOrigin: 'top center' }, { scaleY: 1, duration: 0.3, stagger: 0.06 }, '-=0.1')
-        .to(borderPaths, { strokeDashoffset: 0, duration: 0.4, stagger: 0.05 }, '-=0.15')
-        .fromTo('.card-content', { opacity: 0.84, y: 5 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.04, ease: 'power3.out' }, '-=0.1');
-    },
-    { scope: rootRef },
-  );
-
-  useGSAP(
-    () => {
-      CAPABILITIES.forEach((capability) => {
-        const previous = previousCountsRef.current[capability.id] ?? 0;
-        const next = capability.scopes.filter((scope) => grants.includes(scope)).length;
-        if (previous === next) return;
-
-        const card = rootRef.current?.querySelector<HTMLElement>(`[data-capability-id="${capability.id}"]`);
-        const stage = card?.querySelector<HTMLElement>('[data-count-stage]');
-        const value = stage?.querySelector<HTMLElement>('[data-count-value]');
-        if (stage && value) {
-          const ghost = value.cloneNode(true) as HTMLElement;
-          ghost.removeAttribute('data-count-value');
-          ghost.classList.add('is-count-ghost');
-          ghost.textContent = String(previous).padStart(2, '0');
-          stage.appendChild(ghost);
-
-          const direction = next > previous ? 1 : -1;
-          const timeline = gsap.timeline({ onComplete: () => ghost.remove() });
-          timeline
-            .to(ghost, { y: -20 * direction, opacity: 0, duration: 0.24, ease: 'power2.in' }, 0)
-            .fromTo(value, { y: 20 * direction, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'power3.out' }, 0.08);
-        }
-
-        if (next > previous) {
-          const segment = card?.querySelector<HTMLElement>(`[data-load-segment="${next - 1}"]`);
-          if (segment) {
-            gsap.fromTo(segment, { scaleX: 0, transformOrigin: 'left center' }, { scaleX: 1, duration: 0.18, ease: 'power2.out' });
-          }
-        }
-
-        previousCountsRef.current[capability.id] = next;
-      });
-    },
-    { scope: rootRef, dependencies: [grantSignature] },
-  );
-
-  const triggerGrantRipple = (event: ReactMouseEvent<HTMLButtonElement>, granted: boolean) => {
-    if (granted) return;
-    const card = event.currentTarget.closest<HTMLElement>('[data-capability-module]');
-    const ripple = card?.querySelector<HTMLElement>('[data-card-ripple]');
-    if (!card || !ripple) return;
-
-    const cardRect = card.getBoundingClientRect();
-    const sourceRect = event.currentTarget.getBoundingClientRect();
-    gsap.killTweensOf(ripple);
-    gsap.set(ripple, {
-      left: sourceRect.left - cardRect.left,
-      top: sourceRect.top - cardRect.top,
-      width: sourceRect.width,
-      height: sourceRect.height,
-      opacity: 0.16,
-    });
-    gsap.to(ripple, {
-      left: 0,
-      top: 0,
-      width: cardRect.width,
-      height: cardRect.height,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power3.out',
+  const toggleGroup = (groupId: string, scopeId: string) => {
+    onSelect(groupId, scopeId);
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
     });
   };
 
-  return (
-    <section ref={rootRef} className="sdk-os-capability-surface control-section">
-      <SectionHeading
-        index="01"
-        label="Capability surface"
-        title="Policy workstations"
-        detail={`Editing ${focusedLabel}`}
-      />
+  const getPermissionCopy = (scope: ScopeDefinition) =>
+    PERMISSION_COPY[scope.id] ?? {
+      title: humanizeScopeId(scope.id),
+      summary: scope.description,
+    };
 
-      <div className="machine-surface" data-machine-frame>
-        <span data-surface-trace="top" className="machine-trace machine-trace-top" aria-hidden="true" />
-        <span data-surface-trace="right" className="machine-trace machine-trace-right" aria-hidden="true" />
-        <span className="frame-col-divider frame-col-divider-a" aria-hidden="true" />
-        <span className="frame-col-divider frame-col-divider-b" aria-hidden="true" />
-        <span className="frame-col-divider frame-col-divider-c" aria-hidden="true" />
+  const renderAccessControl = (group: ScopeGroup, scope: ScopeDefinition, granted: boolean) => {
+    const copy = getPermissionCopy(scope);
 
-        <div className="machine-surface-rail">
-          <span>CAPABILITY BUS / REV 1.4.2</span>
-          <span className="ml-auto text-[var(--app-accent)]/65">SIGNAL LOCKED</span>
-          <span className={`capability-signal-sweep ${editing ? 'is-paused' : ''}`} aria-hidden="true" />
-        </div>
+    return (
+      <div
+        data-permission-state
+        role="group"
+        aria-label={`Permission state for ${copy.title}`}
+        className="relative grid h-10 w-[132px] grid-cols-2 items-center overflow-hidden rounded-full bg-black/55 p-1 shadow-[inset_0_1px_rgba(255,255,255,0.06),0_10px_22px_rgba(0,0,0,0.22)]"
+      >
+        <span
+          data-permission-thumb
+          aria-hidden="true"
+          className={[
+            'pointer-events-none absolute bottom-1 left-1 top-1 z-0 w-[calc(50%-4px)] rounded-full transition-[background-color,transform] duration-[260ms] ease-[cubic-bezier(.23,1,.32,1)]',
+            granted ? 'translate-x-0 bg-[#A01016] shadow-[0_8px_18px_rgba(160,16,22,0.28)]' : 'translate-x-[calc(100%+4px)] bg-white/[0.13]',
+          ].join(' ')}
+        />
 
-        <div className="machine-surface-grid">
-          {CAPABILITIES.map((capability) => {
-            const activeCount = capability.scopes.filter((scope) => grants.includes(scope)).length;
-            const selected = capability.id === selectedId;
+        <button
+          type="button"
+          aria-pressed={granted}
+          onClick={() => handleAccessChange(group.id, scope.id, true, granted)}
+          className={[
+            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[8px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A01016]/45',
+            granted ? 'text-white' : 'text-white/30 hover:text-white/60',
+          ].join(' ')}
+        >
+          Allow
+        </button>
 
-            return (
-              <article
-                key={capability.id}
-                data-capability-module
-                data-capability-id={capability.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
-                onClick={() => onSelect(capability.id, capability.scopes[0])}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onSelect(capability.id, capability.scopes[0]);
-                  }
-                }}
-                className={`machine-module machine-slot-${capability.id} group relative min-w-0 cursor-pointer overflow-hidden ${selected ? 'is-selected' : 'is-muted'}`}
-              >
-                <svg className="capability-card-outline pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  <path className="capability-card-border" d="M.5 .5H99.5V79.5H90V99.5H.5Z" vectorEffect="non-scaling-stroke" />
-                </svg>
-                <span data-card-ripple className="capability-ripple pointer-events-none absolute z-0 bg-[var(--app-accent)]" aria-hidden="true" />
-                <div className="card-content relative z-10 flex h-full min-h-0 flex-col p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3 font-mono text-[8px] uppercase tracking-[0.22em]">
-                    <span className="text-white/25">{capability.code}</span>
-                    <span data-live-readout className={activeCount ? 'text-[var(--app-accent)]/75' : 'text-white/22'}>
-                      {activeCount}/{capability.scopes.length} live
-                    </span>
-                  </div>
+        <button
+          type="button"
+          aria-pressed={!granted}
+          onClick={() => handleAccessChange(group.id, scope.id, false, granted)}
+          className={[
+            'relative z-10 flex h-full items-center justify-center rounded-full font-mono text-[8px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/14',
+            !granted ? 'text-white' : 'text-white/30 hover:text-white/60',
+          ].join(' ')}
+        >
+          Deny
+        </button>
+      </div>
+    );
+  };
 
-                  <div data-count-stage className="capability-count-stage" aria-hidden="true">
-                    <span data-count-value className="capability-count-value">
-                      {String(activeCount).padStart(2, '0')}
-                    </span>
-                    <small>enabled</small>
-                  </div>
+  const renderGroup = (group: ScopeGroup) => {
+    const Icon = GROUP_ICONS[group.id] ?? ShieldCheck;
+    const activeCount = group.scopes.filter((scope) => grants.includes(scope.id)).length;
+    const selected = group.id === selectedId;
+    const collapsed = collapsedGroups.has(group.id);
+    const orderedScopes = group.scopes;
 
-                  <div className="module-copy relative mt-auto">
-                    <h3 className="capability-title font-display font-semibold text-white/92">{capability.title}</h3>
-                    <p className="module-description mt-2 max-w-[290px] font-body text-xs leading-5 text-white/40">
-                      {capability.description}
-                    </p>
-                  </div>
+    return (
+      <tbody key={group.id} data-policy-module className="border-t border-white/[0.08] first:border-t-0">
+        <tr>
+          <th scope="rowgroup" colSpan={4} className="px-5 pb-3 pt-6 text-left">
+            <button
+              type="button"
+              aria-expanded={!collapsed}
+              onClick={() => toggleGroup(group.id, orderedScopes[0].id)}
+              className={[
+                'group/capability flex w-full items-center gap-3 rounded-[18px] bg-transparent py-2 pr-3 text-left transition-[background-color,transform] duration-180 hover:-translate-y-0.5 hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/12',
+                selected ? 'text-white' : 'text-white/80',
+              ].join(' ')}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-white/[0.04] text-white/56 transition-colors group-hover/capability:text-white/78">
+                <Icon weight="regular" className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-sans text-[16px] font-semibold leading-none tracking-[-0.03em] text-white">
+                  {group.label}
+                </span>
+                <span className="mt-1.5 block truncate text-[12px] leading-relaxed text-white/42">
+                  {GROUP_DESCRIPTIONS[group.id]}
+                </span>
+              </span>
+              <span className="hidden min-w-[156px] items-center gap-3 sm:flex">
+                <span className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.07]">
+                  <span className="block h-full bg-[#A01016]" style={{ width: `${(activeCount / group.scopes.length) * 100}%` }} />
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-white/58">
+                  {activeCount}/{group.scopes.length}
+                </span>
+              </span>
+              <CaretDown
+                className={[
+                  'h-4 w-4 shrink-0 text-white/35 transition-transform duration-200',
+                  collapsed ? '-rotate-90' : 'rotate-0',
+                ].join(' ')}
+                weight="bold"
+              />
+            </button>
+          </th>
+        </tr>
 
-                  <div className="permission-rail mt-4">
-                    {capability.scopes.map((scope) => {
-                      const granted = grants.includes(scope);
-                      const action = scope.split(':').at(-1) ?? scope;
-                      return (
-                        <button
-                          type="button"
-                          key={scope}
-                          aria-pressed={granted}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            triggerGrantRipple(event, granted);
-                            onSelect(capability.id, scope);
-                            onToggle(scope);
-                          }}
-                          className={`module-scope-command ${granted ? 'is-active' : ''}`}
-                        >
-                          <span className="module-scope-dot" />
-                          <strong>{action}</strong>
-                          <small>{granted ? 'enabled' : 'blocked'}</small>
-                        </button>
-                      );
-                    })}
-                  </div>
+        {collapsed ? null : orderedScopes.map((scope) => {
+          const granted = grants.includes(scope.id);
+          const copy = getPermissionCopy(scope);
 
-                  <ChannelLoad active={activeCount} total={capability.scopes.length} />
+          return (
+            <tr
+              key={scope.id}
+              data-permission-row
+              data-granted={granted ? 'true' : 'false'}
+              className={[
+                'group/permission bg-transparent transition-colors duration-[140ms] ease-[cubic-bezier(.23,1,.32,1)] hover:bg-white/[0.035] focus-within:bg-white/[0.04]',
+                selected ? 'bg-[#A01016]/[0.025]' : '',
+              ].join(' ')}
+            >
+              <td className="w-[230px] px-5 py-3.5 align-middle">
+                <div className="relative">
+                  <span className="absolute -left-5 top-1/2 h-7 w-0.5 -translate-y-1/2 rounded-r-full bg-[#A01016] opacity-0 transition-opacity duration-[180ms] group-hover/permission:opacity-100 group-focus-within/permission:opacity-100" />
+                  <strong className="block truncate font-sans text-[13px] font-semibold tracking-[-0.01em] text-white/82 transition-colors duration-[180ms] group-hover/permission:text-white">
+                    {copy.title}
+                  </strong>
+                  <span
+                    className={[
+                      'mt-1 inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.13em]',
+                      granted ? 'bg-[#A01016]/14 text-white/70' : 'bg-white/[0.045] text-white/36',
+                    ].join(' ')}
+                  >
+                    {granted ? 'Enabled' : 'Available'}
+                  </span>
                 </div>
-              </article>
-            );
-          })}
+              </td>
+
+              <td className="w-[150px] px-4 py-3.5 align-middle">
+                <code className="font-mono text-[10px] text-white/40">{scope.id}</code>
+              </td>
+
+              <td className="px-4 py-3.5 align-middle">
+                <p className="text-[12px] leading-relaxed text-white/42">{copy.summary}</p>
+              </td>
+
+              <td className="w-[168px] px-3 py-3.5 align-middle">
+                {renderAccessControl(group, scope, granted)}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    );
+  };
+
+  return (
+    <section className="min-h-full overflow-hidden bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+      <div className="flex min-h-full flex-col">
+        <header className="flex flex-col gap-5 border-b border-white/[0.06] bg-transparent px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div>
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">
+              Effective permissions
+            </p>
+            <h2 className="mt-2 font-sans text-[clamp(20px,2.2vw,28px)] font-semibold leading-tight tracking-[-0.04em] text-white">
+              Configure <span className="text-white/70">{focusedLabel}</span>
+            </h2>
+            <p className="mt-1.5 text-[12px] text-white/40">
+              Review capabilities as a table, then allow or deny individual SDK operations.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-5 sm:flex-col sm:items-end sm:gap-1">
+            <div className="flex items-end gap-2">
+              <strong className="font-mono text-[36px] font-medium leading-none text-white">
+                {grants.length}
+              </strong>
+              <span className="mb-1 text-[11px] text-white/35">of {TOTAL_SCOPE_COUNT} allowed</span>
+            </div>
+            <span
+              className={[
+                'flex items-center gap-1.5 font-mono text-[8.5px] font-semibold uppercase tracking-widest',
+                editing ? 'text-[#A01016]' : 'text-white/25',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'inline-block h-1.5 w-1.5 rounded-full',
+                  editing ? 'bg-[#A01016]' : 'bg-white/20',
+                ].join(' ')}
+              />
+              {editing ? 'Unsaved changes' : 'Policy synchronized'}
+            </span>
+          </div>
+        </header>
+
+        <div className="max-w-full flex-1 overflow-x-auto px-4 py-3 [scrollbar-gutter:stable] md:overflow-x-visible sm:px-6">
+          <div className="w-full min-w-[760px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+            <table className="w-full table-fixed border-collapse">
+              <caption className="sr-only">SDK capability permission table</caption>
+              <thead className="sticky top-0 z-30 bg-gradient-to-r from-[#080808] via-[#0b0b0b] to-black shadow-[0_1px_rgba(255,255,255,0.08)]">
+                <tr className="border-b border-white/[0.08] font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/42">
+                  <th scope="col" className="w-[230px] px-5 py-3 text-left">
+                    Permission
+                  </th>
+                  <th scope="col" className="w-[150px] px-4 py-3 text-left">
+                    SDK ID
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Summary
+                  </th>
+                  <th scope="col" className="w-[168px] px-3 py-3 text-left">
+                    Access
+                  </th>
+                </tr>
+              </thead>
+              {SCOPE_GROUPS.map(renderGroup)}
+            </table>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-export function SectionHeading({ index, label, title, detail }: { index: string; label: string; title: string; detail?: string }) {
+export function SectionHeading({
+  index,
+  label,
+  title,
+  detail,
+}: {
+  index?: string;
+  label: string;
+  title: string;
+  detail?: string;
+}) {
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-white/[0.08] pb-4">
-      <span className="font-mono text-[8px] text-[var(--app-accent)]/60">{index}</span>
+    <div className="mb-5 flex flex-wrap items-end gap-3 border-b border-white/[0.07] pb-5">
+      {index ? (
+        <span className="font-mono text-[9px] font-semibold text-[#A01016]">{index}</span>
+      ) : null}
       <div>
-        <p className="font-mono text-[8px] uppercase tracking-[0.28em] text-white/25">{label}</p>
-        <h2 className="mt-1 font-display text-xl font-semibold text-white/90 sm:text-2xl">{title}</h2>
+        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-white/30">
+          {label}
+        </p>
+        <h2 className="mt-1 font-sans text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">
+          {title}
+        </h2>
       </div>
-      {detail ? <span className="w-full font-mono text-[8px] uppercase tracking-[0.16em] text-white/20 sm:ml-auto sm:w-auto">{detail}</span> : null}
-    </div>
-  );
-}
-
-function ChannelLoad({ active, total }: { active: number; total: number }) {
-  return (
-    <div className="channel-load mt-4 border-t border-white/[0.07] pt-3">
-      <div className="mb-2 flex justify-between font-mono text-[8px] uppercase tracking-[0.16em] text-white/25">
-        <span>Channel load</span>
-        <span>{active}/{total}</span>
-      </div>
-      <div className="flex gap-0.5">
-        {Array.from({ length: total }, (_, index) => (
-          <span
-            key={index}
-            data-load-segment={index}
-            className={`h-0.5 flex-1 ${index < active ? 'bg-[var(--app-accent)]' : 'bg-white/10'}`}
-          />
-        ))}
-      </div>
+      {detail ? (
+        <span className="ml-auto font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">
+          Editing&nbsp;{detail}
+        </span>
+      ) : null}
     </div>
   );
 }

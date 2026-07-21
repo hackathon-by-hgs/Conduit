@@ -1,20 +1,15 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Sora } from 'next/font/google';
+import { JetBrains_Mono, Outfit } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
 import './telemetry.css';
 import { Providers } from './providers';
 import { AppShell } from './_components/app-shell';
 
-const sora = Sora({
+const outfit = Outfit({
   subsets: ['latin'],
-  variable: '--font-sora',
-  weight: ['400', '500', '600', '700', '800'],
-});
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-outfit',
+  weight: ['300', '400', '500', '600', '700', '800'],
 });
 
 const jetBrainsMono = JetBrains_Mono({
@@ -29,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${sora.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${outfit.variable} ${jetBrainsMono.variable}`}>
       <body>
         <Providers>
           <AppShell>{children}</AppShell>

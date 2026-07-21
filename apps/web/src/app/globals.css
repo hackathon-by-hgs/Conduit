@@ -1,24 +1,56 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
 
+  /* Brand palette */
+  --color-accent: #A01016;
+  --color-accent-soft: #D35B60;
+
+  /* Light surface (default app shell) */
   --color-bg: #d9dcd8;
   --color-surface: #eef0ed;
   --color-border: #c8cbc6;
   --color-muted: #686c67;
   --color-text: #151615;
-  --color-accent: #A01016;
+
+  /* Dark telemetry surface */
+  --color-dark-canvas: #070707;
+  --color-dark-surface: #0c0c0c;
+  --color-dark-raised: #111111;
+  --color-dark-elevated: #161616;
+  --color-dark-border: #262626;
+  --color-dark-border-soft: #2e2e2e;
+  --color-dark-muted: #666666;
+  --color-dark-muted-2: #a3a3a3;
+  --color-dark-ink: #f5f5f5;
 }
+
+/* ============================================================
+   LOADING ANIMATION — kept in CSS (keyframe-based, cannot be Tailwind)
+   ============================================================ */
+@keyframes telemetry-loader {
+  0%, 35% { background: #262626; transform: skewX(-12deg) scaleY(0.35); }
+  100%     { background: #a01016; transform: skewX(-12deg) scaleY(1); }
+}
+
+.telemetry-loader-seg {
+  animation: telemetry-loader 1.1s ease-in-out infinite alternate;
+}
+.telemetry-loader-seg:nth-child(3n + 1) { animation-delay: 80ms; }
+.telemetry-loader-seg:nth-child(3n + 2) { animation-delay: 160ms; }
+.telemetry-loader-seg:nth-child(3n + 3) { animation-delay: 240ms; }
+
+
 
 :root {
   color-scheme: light;
-  --font-syne: var(--font-sora);
-  --font-manrope: var(--font-inter);
-  --font-space-grotesk: var(--font-inter);
+  --font-syne: var(--font-outfit);
+  --font-manrope: var(--font-outfit);
+  --font-space-grotesk: var(--font-outfit);
   --color-bg: #d9dcd8;
   --color-surface: #eef0ed;
   --color-border: #c8cbc6;
@@ -60,7 +92,7 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-sora), var(--font-inter), ui-sans-serif, sans-serif;
+  font-family: var(--font-outfit), ui-sans-serif, sans-serif;
 }
 
 button,
@@ -86,66 +118,34 @@ button:disabled,
   outline-offset: 3px;
 }
 
-.industrial-chassis {
-  border: 1px solid rgba(255, 255, 255, 0.11);
+/* ============================================================
+   MECHANICAL SIDEBAR — pseudo-element slot borders
+   Cannot be expressed as Tailwind inline utilities
+   ============================================================ */
+
+/* Slot border: always-visible machined slot outline on each nav position */
+.machine-nav-cell::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0;
+  background: transparent;
+  opacity: 1;
+  pointer-events: none;
+  transition: border-color 200ms ease;
 }
 
-.machine-sidebar {
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+.machine-nav-cell:hover::before {
+  border-color: rgba(255, 255, 255, 0.14);
+  opacity: 1;
 }
 
-.machine-logo-dock {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
-}
-
+/* clip-path for the notched corner on the Conduit logo mark */
 .conduit-mark {
   clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
 }
 
-.machine-nav-stack {
-  position: relative;
-}
-
-.machine-nav-cell {
-  background: transparent;
-  overflow: visible;
-}
-
-.machine-nav-cell::before {
-  background: rgba(255, 255, 255, 0.025);
-  content: '';
-  inset: 0;
-  opacity: 0;
-  position: absolute;
-  transition: opacity 220ms ease;
-}
-
-.machine-nav-cell:hover::before {
-  opacity: 1;
-}
-
-.machine-nav-cell.is-active {
-  background: rgba(255, 255, 255, 0.04);
-  border-left: 2px solid #A01016;
-}
-
-.nav-dock-notch {
-  background: #080808;
-  height: 32px;
-  right: -4px;
-  transform-origin: center;
-  width: 8px;
-  z-index: 70;
-}
-
-.machine-terminal {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.machine-terminal > div {
-  border: 1px solid rgba(255, 255, 255, 0.11);
-}
 
 .command-chassis {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -166,7 +166,7 @@ button:disabled,
 }
 
 .access-scroll {
-  scrollbar-color: rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.035);
+  scrollbar-color: rgba(255, 116, 116, 0.28) rgba(245, 17, 17, 0.438);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -2237,24 +2237,17 @@ button:disabled,
   .machine-nav-cell {
     justify-content: center;
     padding-left: 0;
-    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+    transition: color 180ms ease;
   }
 
   .machine-nav-cell.is-active {
-    background: rgba(255, 255, 255, 0.04);
+    background: transparent;
     width: 100%;
     z-index: 60;
   }
 
   .machine-nav-cell.is-active::after {
-    background: #fff;
-    content: '';
-    height: 4px;
-    position: absolute;
-    right: -2px;
-    top: calc(50% - 2px);
-    width: 4px;
-    z-index: 80;
+    display: none;
   }
 }
 
@@ -2341,13 +2334,13 @@ button:disabled,
   }
 
   .machine-nav-cell {
-    border-right: 1px solid rgba(255, 255, 255, 0.055);
+    border-right: none;
   }
 
   .machine-nav-cell.is-active {
-    background: rgba(255, 255, 255, 0.055);
-    border-bottom: 2px solid #A01016;
-    border-left: 0;
+    background: transparent;
+    border-bottom: none;
+    border-left: none;
   }
 
   .mobile-command-copy,
@@ -3573,12 +3566,12 @@ button:disabled,
 }
 
 .machine-nav-cell::before {
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  border-radius: 0;
 }
 
 .machine-nav-cell.is-active {
-  border-left-color: var(--app-accent);
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  border-left: none;
+  border-radius: 0;
 }
 
 .machine-terminal > div,
@@ -3779,8 +3772,8 @@ button:disabled,
   }
 
   .machine-nav-cell.is-active {
-    border-bottom-color: var(--app-accent);
-    border-radius: var(--radius-control);
+    border-bottom: none;
+    border-radius: 0;
   }
 
   .sdk-workspace-cluster {
@@ -3804,12 +3797,12 @@ button:disabled,
 
 /* Pearl light variant */
 .light-app {
-  background: var(--app-canvas);
+  background: transparent;
   color: var(--app-ink);
 }
 
 .light-app .industrial-chassis {
-  background: var(--app-shell);
+  background-color: transparent;
   border-color: rgba(21, 22, 21, 0.24);
 }
 
@@ -3819,42 +3812,45 @@ button:disabled,
 }
 
 .light-app .machine-sidebar {
-  background: #e3e6e2;
-  border-color: var(--app-line);
+  background: rgba(0, 0, 0, 0.70);
+  border-color: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px);
 }
 
 .light-app .machine-logo-dock,
 .light-app .machine-terminal,
 .light-app .machine-terminal > div {
-  border-color: var(--app-line);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Nav cells: keep the dark mechanical look regardless of theme */
 .light-app .machine-nav-cell {
-  color: rgba(21, 22, 21, 0.42) !important;
+  color: rgba(255, 255, 255, 0.30) !important;
 }
 
 .light-app .machine-nav-cell:hover,
 .light-app .machine-nav-cell.is-active {
-  color: var(--app-ink) !important;
+  color: rgba(255, 255, 255, 0.90) !important;
 }
 
+/* Kill the white fill that was showing on every nav cell */
 .light-app .machine-nav-cell::before,
 .light-app .machine-nav-cell.is-active {
-  background: rgba(255, 255, 255, 0.58);
+  background: transparent;
 }
 
 .light-app .machine-nav-cell > span {
-  background: var(--app-ink);
-  border-color: rgba(21, 22, 21, 0.2);
-  color: #fff;
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
 }
 
 .light-app .nav-dock-notch {
-  background: var(--app-shell);
+  background-color: transparent;
 }
 
 .light-app .machine-terminal > div {
-  color: rgba(21, 22, 21, 0.52);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .light-app .mobile-shell-header {
@@ -4278,17 +4274,17 @@ button:disabled,
 
 .light-app .machine-nav-cell:hover,
 .light-app .machine-nav-cell.is-active {
-  background: rgba(160, 16, 22, 0.12);
-  color: #C43C42 !important;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .light-app .machine-nav-cell.is-active::before {
-  background: rgba(160, 16, 22, 0.08);
+  background: transparent;
 }
 
 .light-app .machine-nav-cell.is-active::after,
 .light-app .nav-dock-notch {
-  background: var(--app-accent);
+  background: transparent;
 }
 
 .light-app .machine-nav-cell > span {
@@ -4394,12 +4390,10 @@ button:disabled,
 .simple-request-tester,
 .simple-key-register,
 .simple-access-topology {
-  border-radius: var(--radius-panel);
   overflow: hidden;
 }
 
 .simple-access-topology {
-  background: var(--app-panel-strong);
   border: 1px solid var(--app-line);
 }
 
@@ -5508,11 +5502,11 @@ button:disabled,
 
 /* Split operating surface: luminous workspace and dark access console */
 .split-layout-app {
-  background: #242631;
+  background: transparent;
 }
 
 .split-layout-app .industrial-chassis {
-  background: #090a0f;
+  background-color: transparent;
   border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -5533,7 +5527,6 @@ button:disabled,
 
 .split-layout-app .machine-nav-cell:hover,
 .split-layout-app .machine-nav-cell.is-active {
-  background: rgba(160, 16, 22, 0.12);
   color: var(--app-accent) !important;
 }
 
@@ -5542,7 +5535,7 @@ button:disabled,
 }
 
 .split-layout-app .scope-manager {
-  background: #090a0f;
+  background-color: transparent;
 }
 
 .scope-primary-pane {
@@ -5627,7 +5620,7 @@ button:disabled,
 }
 
 .split-layout-app .scope-manager .simple-inspector-header {
-  background: #090a0f;
+  background-color: transparent;
   border-color: rgba(255, 255, 255, 0.1);
   min-height: 100px;
   padding: 16px 18px;
@@ -5686,7 +5679,7 @@ button:disabled,
 }
 
 .split-layout-app .scope-manager .simple-access-inspector > .access-scroll {
-  background: #090a0f;
+  background-color: transparent;
   padding: 12px;
   scrollbar-color: rgba(255, 255, 255, 0.24) rgba(255, 255, 255, 0.04);
 }
@@ -5822,7 +5815,7 @@ button:disabled,
 
 @media (max-width: 639px) {
   .split-layout-app {
-    background: #090a0f;
+    background-color: transparent;
   }
 
   .split-layout-app .mobile-shell-header {
@@ -5880,8 +5873,8 @@ button:disabled,
 }
 
 .split-layout-app .machine-nav-cell.is-active {
-  background: #202a24;
-  border-color: rgba(160, 16, 22, 0.5);
+  background: transparent;
+  border-color: transparent;
   color: var(--app-accent) !important;
 }
 
@@ -6767,3 +6760,5 @@ button:disabled,
     transition-duration: 0.01ms !important;
   }
 }
+
+

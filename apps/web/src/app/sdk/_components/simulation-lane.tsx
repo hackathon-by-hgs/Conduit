@@ -42,20 +42,21 @@ export function SimulationLane({ entityLabel, grants }: SimulationLaneProps) {
   });
 
   return (
-    <section ref={rootRef} className="simple-request-tester">
-      <div className="simple-section-heading">
+    <section ref={rootRef} className="simple-request-tester bg-transparent p-0">
+      <div className="simple-section-heading mb-[16px] flex flex-wrap items-end justify-between gap-6 border-b border-[#d5ecde]/10 pb-[16px]">
         <div>
-          <p>Request test</p>
-          <h2>Check access before sending a request</h2>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#e2f0e7]/30">Request test</p>
+          <h2 className="mt-[5px] font-sans text-[26px] font-semibold leading-[1.08] tracking-[-0.015em] text-[#f8fcf9]/90">Check access before sending a request</h2>
         </div>
-        <span>{entityLabel}</span>
+        <span className="whitespace-nowrap font-mono text-[9px] text-[#e2f0e7]/30">{entityLabel}</span>
       </div>
 
-      <div className="request-test-layout">
-        <div className="request-test-form">
+      <div className="request-test-layout grid min-h-[390px] border-t border-[#d5ecde]/10 bg-[#080c09]/22" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 0.72fr)' }}>
+        <div className="request-test-form relative border-r border-[#d5ecde]/10 p-6">
           <label>
-            <span>API endpoint</span>
+            <span className="block font-mono text-[8px] uppercase tracking-[0.12em] text-[#e2f0e7]/38">API endpoint</span>
             <select
+              className="mt-[9px] h-[48px] w-full border border-[#d5ecde]/10 bg-[#060907]/52 px-[12px] font-mono text-[10px] text-[#f5faf7]/75 outline-none"
               value={endpointIndex}
               onChange={(event) => {
                 setEndpointIndex(Number(event.target.value));
@@ -70,41 +71,41 @@ export function SimulationLane({ entityLabel, grants }: SimulationLaneProps) {
             </select>
           </label>
 
-          <div className="request-scope-summary">
-            <span>Required permission</span>
-            <strong>{endpoint.scope}</strong>
-            <small className={allowed ? 'is-allowed' : ''}>
+          <div className="request-scope-summary mt-[24px] border-y border-[#d5ecde]/10 py-[18px]">
+            <span className="block font-mono text-[8px] uppercase tracking-[0.12em] text-[#e2f0e7]/38">Required permission</span>
+            <strong className="mt-[10px] block font-mono text-[12px] font-medium text-[#f5faf7]/80">{endpoint.scope}</strong>
+            <small className={`mt-[7px] block text-[10px] ${allowed ? 'is-allowed text-[#00ff94]/65' : 'text-red-400/68'}`}>
               {allowed ? 'Currently allowed' : 'Currently blocked'}
             </small>
           </div>
 
-          <button type="button" onClick={runTest} disabled={running} className="request-test-button">
+          <button type="button" onClick={runTest} disabled={running} className="request-test-button mt-6 flex h-[44px] w-full items-center justify-center gap-2 bg-[#f4f4f4] font-sans text-[11px] font-semibold text-[#080808] transition-colors duration-160 hover:bg-[#a01016] hover:text-white disabled:opacity-55">
             <Play className="h-4 w-4" weight="fill" />
             {running ? 'Testing request...' : 'Run test'}
           </button>
-          <span data-test-progress className="request-test-progress" aria-hidden="true" />
+          <span data-test-progress className="request-test-progress absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 bg-[#A01016]" aria-hidden="true" />
         </div>
 
-        <div className={`request-test-result ${result ? `is-${result}` : ''}`} aria-live="polite">
+        <div className={`request-test-result flex flex-col items-center justify-center p-[28px] text-center text-white/35 ${result ? `is-${result}` : ''} ${result === 'allowed' ? 'text-[var(--app-accent)]' : result === 'denied' ? 'text-red-400' : ''}`} aria-live="polite">
           {result === 'allowed' ? (
             <>
               <Check className="h-6 w-6" weight="bold" />
-              <p>Request allowed</p>
-              <span>This credential can call the selected endpoint.</span>
-              <code>200</code>
+              <p className="mt-[14px] font-sans text-[23px] font-semibold text-[#f8fcf9]/90">Request allowed</p>
+              <span className="mt-[7px] max-w-[230px] text-[11px] leading-[1.55] text-[#e2f0e7]/38">This credential can call the selected endpoint.</span>
+              <code className="mt-[20px] font-mono text-[10px] text-[#e2f0e7]/38">200</code>
             </>
           ) : result === 'denied' ? (
             <>
               <X className="h-6 w-6" weight="bold" />
-              <p>Request blocked</p>
-              <span>Grant {endpoint.scope} before sending this request.</span>
-              <code>403</code>
+              <p className="mt-[14px] font-sans text-[23px] font-semibold text-[#f8fcf9]/90">Request blocked</p>
+              <span className="mt-[7px] max-w-[230px] text-[11px] leading-[1.55] text-[#e2f0e7]/38">Grant {endpoint.scope} before sending this request.</span>
+              <code className="mt-[20px] font-mono text-[10px] text-[#e2f0e7]/38">403</code>
             </>
           ) : (
             <>
-              <span className="request-result-placeholder" />
-              <p>Ready to test</p>
-              <span>No request will be sent.</span>
+              <span className="request-result-placeholder h-[24px] w-[24px] border border-white/20" />
+              <p className="mt-[14px] font-sans text-[23px] font-semibold text-[#f8fcf9]/90">Ready to test</p>
+              <span className="mt-[7px] max-w-[230px] text-[11px] leading-[1.55] text-[#e2f0e7]/38">No request will be sent.</span>
             </>
           )}
         </div>

@@ -18,8 +18,12 @@ export function EventDetailView({ id }: { id: string }) {
   if (!data) return null;
 
   return (
-    <section className="telemetry-page-stack telemetry-event-detail">
-      <Link href="/events" className="telemetry-back-command">
+    <section className="flex flex-col gap-[18px]">
+      {/* Back navigation */}
+      <Link
+        href="/events"
+        className="inline-flex items-center gap-[9px] self-start font-mono text-[9px] uppercase tracking-[0.12em] text-[#a3a3a3] transition-colors duration-[160ms] hover:text-[#f5f5f5]"
+      >
         <ArrowLeft weight="bold" /> Event stream
       </Link>
 
@@ -31,44 +35,73 @@ export function EventDetailView({ id }: { id: string }) {
         metric={{ label: 'Delivery sends', value: data.sends.length }}
       />
 
-      <div className="telemetry-event-meta-strip">
-        <div><span>Status</span><EventStatusBadge status={data.status} /></div>
-        <div><span>Idempotency key</span><code>{data.idempotencyKey}</code></div>
-        <div><span>Processed</span><strong>{data.processedAt ? new Date(data.processedAt).toLocaleTimeString() : 'Pending'}</strong></div>
+      {/* Meta strip: status / idempotency key / processed time */}
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[20px] border border-[#262626] bg-[#262626] sm:grid-cols-[0.65fr_1.7fr_0.65fr]">
+        {[
+          { label: 'Status', content: <EventStatusBadge status={data.status} /> },
+          { label: 'Idempotency key', content: <code className="w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-[#f5f5f5]">{data.idempotencyKey}</code> },
+          { label: 'Processed', content: <strong className="w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-[#f5f5f5]">{data.processedAt ? new Date(data.processedAt).toLocaleTimeString() : 'Pending'}</strong> },
+        ].map(({ label, content }) => (
+          <div key={label} className="flex min-w-0 flex-col items-start gap-[10px] bg-[#0c0c0c] p-[16px_18px]">
+            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#666]">{label}</span>
+            {content}
+          </div>
+        ))}
       </div>
 
-      <Card className="telemetry-payload-module">
-        <header>
-          <div><span>DATA / PAYLOAD</span><h2>Normalized event body</h2></div>
-          <b>{Object.keys(data.payload).length} FIELDS</b>
+      {/* Payload card */}
+      <Card className="!p-0">
+        <header className="flex min-h-[78px] items-center justify-between border-b border-[#262626] bg-[#161616] px-5 py-[15px]">
+          <div>
+            <b className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#a01016]">DATA / PAYLOAD</b>
+            <h2 className="mt-[5px] font-sans text-[18px] font-semibold text-[#f5f5f5]">Normalized event body</h2>
+          </div>
+          <b className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-[#a01016]">
+            {Object.keys(data.payload).length} FIELDS
+          </b>
         </header>
-        <pre>{JSON.stringify(data.payload, null, 2)}</pre>
+        <pre className="max-h-[420px] overflow-auto p-6 font-mono text-[11px] leading-[1.8] text-[#a3a3a3]">
+          {JSON.stringify(data.payload, null, 2)}
+        </pre>
       </Card>
 
-      <section className="telemetry-send-register">
-        <header className="telemetry-section-rail">
-          <div><span>DELIVERY / OUTPUT</span><h2>Send telemetry</h2></div>
-          <strong>{String(data.sends.length).padStart(2, '0')}</strong>
-        </header>
+      {/* Send register */}
+      <section className="grid gap-[14px]">
+        {/* Section rail header */}
+        <div className="flex min-h-[78px] items-center justify-between overflow-hidden rounded-[20px] border border-[#262626] bg-[#161616] px-5 py-[15px]">
+          <div>
+            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#666]">DELIVERY / OUTPUT</span>
+            <h2 className="mt-[5px] font-sans text-[18px] font-semibold text-[#f5f5f5]">Send telemetry</h2>
+          </div>
+          <strong className="font-mono text-[34px] font-medium text-[#a01016]">
+            {String(data.sends.length).padStart(2, '0')}
+          </strong>
+        </div>
 
         {data.sends.length ? data.sends.map((send, index) => (
-          <Card className="telemetry-send-module" key={send.id}>
-            <header>
-              <span className="telemetry-send-index">{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <span>{send.channel} / {send.status}</span>
-                <h3>{send.to}</h3>
+          <Card key={send.id} className="!p-0">
+            <header className="grid min-h-[92px] grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-[#262626] bg-[#111] px-5 py-4 sm:[grid-template-columns:auto_minmax(0,1fr)_auto_auto]">
+              {/* Index badge */}
+              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#2e2e2e] font-mono text-[10px] font-semibold text-[#a01016]">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div className="min-w-0">
+                <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#666]">{send.channel} / {send.status}</span>
+                <h3 className="mt-[5px] overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[17px] text-[#f5f5f5]">{send.to}</h3>
               </div>
-              <div className="telemetry-send-attempt-count">
-                <strong>{String(send.attempts).padStart(2, '0')}</strong>
-                <span>attempts</span>
+              {/* Attempt count */}
+              <div className="flex flex-col items-end">
+                <strong className="font-mono text-[25px] text-[#f5f5f5]">{String(send.attempts).padStart(2, '0')}</strong>
+                <span className="font-mono text-[8px] uppercase text-[#666]">attempts</span>
               </div>
-              <ArrowRight weight="bold" />
+              <ArrowRight weight="bold" className="text-[#666]" />
             </header>
             <DeliveryTimeline attempts={send.attemptHistory} />
           </Card>
         )) : (
-          <p className="telemetry-timeline-empty">No delivery sends were created for this event.</p>
+          <p className="px-5 py-7 font-mono text-[10px] uppercase tracking-[0.13em] text-[#666]">
+            No delivery sends were created for this event.
+          </p>
         )}
       </section>
     </section>

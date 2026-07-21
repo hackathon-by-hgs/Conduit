@@ -1,6 +1,5 @@
 'use client';
 
-import { ArrowsClockwise } from '@phosphor-icons/react';
 import type { SendDto } from '@conduit/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Table, TCell, THead, TRow } from '@/components/ui/table';

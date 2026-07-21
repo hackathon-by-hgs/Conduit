@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReconcileReportDto } from '@conduit/contracts';
+import { Badge } from '@/components/ui/badge';
 import { useStreamStore } from '@/stores/stream.store';
 
 export function HealthStrip({ report }: { report: ReconcileReportDto }) {
