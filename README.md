@@ -1103,7 +1103,7 @@ This section is deliberately explicit so reviewers know exactly what is live ver
   <tr>
     <td align="center"><a href="https://github.com/Maxima24">@Maxima24</a></td>
     <td align="center"><a href="https://github.com/professor-12">@professor-12</a></td>
-    <td align="center"><a href="https://github.com/ZEED2468">@ZEED2468</a></td>
+    <td align="center"><a href="https://github.com/willy264">@willy264</a></td>
     <td align="center"><a href="https://github.com/Ferousco-dev">@Ferousco-dev</a></td>
   </tr>
   <tr>
