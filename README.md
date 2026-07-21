@@ -20,7 +20,7 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a?logo=nodedotjs&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-29_passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-85_passing-2ea44f)
 ![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
 ![License](https://img.shields.io/badge/license-TBD-lightgrey)
 
@@ -997,8 +997,8 @@ The whole stack — API, dashboard, Postgres and Key Value — is one Render Blu
 
 | Service | Type | What it runs |
 | --- | --- | --- |
-| `conduit-api` | web (free) | NestJS API **plus** the delivery worker, outbox dispatcher and reconciler, in-process |
-| `conduit-dashboard` | web (free) | Next.js dashboard and its server-side API proxy |
+| `conduit-api-apiconf` | web (free) | NestJS API **plus** the delivery worker, outbox dispatcher and reconciler, in-process |
+| `conduit-dashboard-apiconf` | web (free) | Next.js dashboard and its server-side API proxy |
 | `conduit-cache` | keyvalue (free) | BullMQ's backing store, `maxmemoryPolicy: noeviction` |
 | `conduit-db` | postgres (free) | Event log, sends, attempts, gaps, outbox |
 

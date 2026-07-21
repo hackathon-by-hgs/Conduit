@@ -21,8 +21,12 @@
 
 services:
   # ── API · NestJS. Also runs the delivery worker, outbox dispatcher and reconciler in-process.
+  # The `-apiconf` suffix is deliberate: plain `conduit-dashboard` is already taken on
+  # onrender.com by another account, and a taken name makes Render silently append its own
+  # suffix — which would break the two hardcoded public URLs below. Both web services carry
+  # the suffix so the pair stays symmetric.
   - type: web
-    name: conduit-api
+    name: conduit-api-apiconf
     runtime: node
     plan: free
     region: oregon
@@ -62,7 +66,7 @@ services:
       # Public URL of the dashboard, for CORS. Verify after the first deploy — Render
       # appends a suffix if the service name is already taken.
       - key: WEB_ORIGIN
-        value: https://conduit-dashboard.onrender.com
+        value: https://conduit-dashboard-apiconf.onrender.com
       # Generated once, here, and copied to the dashboard below — both sides must agree.
       - key: CONDUIT_API_KEY
         generateValue: true
@@ -82,7 +86,7 @@ services:
 
   # ── Dashboard · Next.js
   - type: web
-    name: conduit-dashboard
+    name: conduit-dashboard-apiconf
     runtime: node
     plan: free
     region: oregon
@@ -106,12 +110,12 @@ services:
       # web service cannot receive on. Verify this matches the API's real URL after the
       # first deploy.
       - key: CONDUIT_API_URL
-        value: https://conduit-api.onrender.com
+        value: https://conduit-api-apiconf.onrender.com
       # Read server-side only, by the /api/conduit proxy — deliberately NOT NEXT_PUBLIC_*,
       # so Next refuses to inline it into a browser bundle.
       - key: CONDUIT_API_KEY
         fromService:
-          name: conduit-api
+          name: conduit-api-apiconf
           type: web
           envVarKey: CONDUIT_API_KEY
       - key: NEXT_PUBLIC_USE_MOCKS
