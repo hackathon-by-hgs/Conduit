@@ -362,6 +362,7 @@ export function ScopeManager() {
 
             <div className="relative z-[170] min-w-0 justify-self-end md:w-full md:justify-self-stretch">
               <form
+                data-boot-search
                 className={[
                   'group relative grid h-11 items-center gap-2.5 overflow-hidden rounded-2xl border px-3 transition-[width,background-color,border-color,transform] duration-300 ease-[cubic-bezier(.23,1,.32,1)] focus-within:border-[#A01016]/75 focus-within:bg-white/[0.045] sm:h-12 md:w-full',
                   searchExpanded ? 'w-[min(78vw,330px)]' : 'w-11 cursor-pointer px-0',
@@ -584,7 +585,7 @@ export function ScopeManager() {
             </div>
           </div>
 
-          <div className="access-scroll flex min-h-0 items-center gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 sm:px-5 md:min-h-[50px] md:py-1.5">
+          <div data-boot-toolbar className="access-scroll flex min-h-0 items-center gap-2 overflow-x-auto overflow-y-hidden px-3 py-2 sm:px-5 md:min-h-[50px] md:py-1.5">
             <div className="w-[400px] shrink-0 min-[420px]:w-[430px] md:w-auto">
               <ScopeViewSwitcher value={activeView} onChange={setActiveView} />
             </div>

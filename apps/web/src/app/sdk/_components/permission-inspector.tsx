@@ -69,6 +69,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
         ].join(' ')}
       />
       <aside
+        data-boot-inspector
         style={{ '--inspector-width': `${width}px` } as CSSProperties}
         className={[
           inspectorShellClass,
@@ -113,7 +114,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
         <section data-summary-section className="grid grid-cols-1 overflow-hidden rounded-t-[16px] border border-white/[0.06] bg-white/[0.018] min-[420px]:grid-cols-2 sm:rounded-t-[18px]">
           <div className="flex flex-col justify-center border-b border-white/[0.06] bg-transparent p-3.5 min-[420px]:border-b-0 min-[420px]:border-r sm:p-4">
             <span className="font-mono text-[8px] uppercase tracking-widest text-white/40">Allowed permissions</span>
-            <strong data-summary-value className="mt-2 font-sans text-[28px] font-semibold leading-none text-white/90">{grants.length}<small className="ml-1 font-mono text-[11px] text-white/30">/18</small></strong>
+            <strong data-summary-value className="mt-2 font-sans text-[28px] font-semibold leading-none text-white/90"><span data-boot-counter data-boot-count={grants.length}>{grants.length}</span><small className="ml-1 font-mono text-[11px] text-white/30">/18</small></strong>
           </div>
           <div className="flex flex-col justify-center bg-transparent p-3.5 sm:p-4">
             <span className="font-mono text-[8px] uppercase tracking-widest text-white/40">Risk level</span>
@@ -168,7 +169,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
               return (
                 <div key={group.id} className="flex items-center justify-between rounded-[11px] bg-white/[0.02] px-3 py-2">
                   <span className="text-[11px] text-white/70">{group.label}</span>
-                  <div className="mx-4 flex h-1 flex-1 overflow-hidden rounded-full bg-white/10"><i className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(active / group.scopes.length) * 100}%` }} /></div>
+                  <div className="mx-4 flex h-1 flex-1 overflow-hidden rounded-full bg-white/10"><i data-boot-progress className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(active / group.scopes.length) * 100}%` }} /></div>
                   <strong className="font-mono text-[10px] text-white/60">{active}/{group.scopes.length}</strong>
                 </div>
               );

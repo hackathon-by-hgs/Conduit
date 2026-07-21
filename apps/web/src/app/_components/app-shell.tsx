@@ -6,6 +6,7 @@ import { gsap } from 'gsap';
 import { usePathname } from 'next/navigation';
 import { Pulse } from '@phosphor-icons/react';
 import { MachineSidebar } from './machine-sidebar';
+import { PolicyEngineBoot } from './policy-engine-boot';
 
 gsap.registerPlugin(useGSAP);
 
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     >
       <div
         ref={shellRef}
+        data-boot-chassis
         className={`industrial-chassis relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] overflow-hidden bg-black/50 backdrop-blur-xl sm:h-[calc(100dvh-24px)] ${sdkChromeLayout ? '!bg-black/10 !backdrop-blur-none !backdrop-saturate-[115%]' : ''}`}
       >
         <span className={`frame-border-top pointer-events-none absolute inset-x-0 top-0 z-[90] h-px bg-white/25 ${sdkChromeLayout ? 'hidden' : ''}`} aria-hidden="true" />
@@ -75,8 +77,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <MachineSidebar />
 
-        <div ref={routeRef} className={`h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden pb-16 sm:w-auto sm:pb-0 ${sdkChromeLayout ? 'bg-black/[0.14]' : 'bg-black/35 backdrop-blur-md'}`}>
-          <div className="relative z-[150] flex h-12 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#050505]/98 px-3 backdrop-blur-xl sm:hidden">
+        <div ref={routeRef} data-boot-main className={`h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden pb-16 sm:w-auto sm:pb-0 ${sdkChromeLayout ? 'bg-black/[0.14]' : 'bg-black/35 backdrop-blur-md'}`}>
+          <div data-boot-mobile-header className="relative z-[150] flex h-12 shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#050505]/98 px-3 backdrop-blur-xl sm:hidden">
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-[11px] bg-white/[0.055] text-white/90 ring-1 ring-white/[0.08]" aria-hidden="true">
                 <svg viewBox="0 0 44 44" className="h-4.5 w-4.5">
@@ -95,6 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           {children}
         </div>
+        <PolicyEngineBoot />
       </div>
     </div>
   );

@@ -262,7 +262,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
               </span>
               <span className="hidden min-w-[156px] items-center gap-3 sm:flex">
                 <span className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.07]">
-                  <span className="block h-full bg-[#A01016]" style={{ width: `${(activeCount / group.scopes.length) * 100}%` }} />
+                  <span data-boot-progress className="block h-full bg-[#A01016]" style={{ width: `${(activeCount / group.scopes.length) * 100}%` }} />
                 </span>
                 <span className="font-mono text-[10px] font-semibold text-white/58">
                   {activeCount}/{group.scopes.length}
@@ -329,7 +329,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
   };
 
   return (
-    <section ref={rootRef} className="min-h-full overflow-visible bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
+    <section ref={rootRef} data-boot-surface className="min-h-full overflow-visible bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96">
       <div className="flex min-h-full flex-col">
         <header className="flex flex-col gap-4 border-b border-white/[0.06] bg-transparent px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-5">
           <div>
@@ -346,7 +346,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
 
           <div className="flex items-center gap-5 sm:flex-col sm:items-end sm:gap-1">
             <div className="flex items-end gap-2">
-              <strong className="font-mono text-[36px] font-medium leading-none text-white">
+              <strong data-boot-counter data-boot-count={grants.length} className="font-mono text-[36px] font-medium leading-none text-white">
                 {grants.length}
               </strong>
               <span className="mb-1 text-[11px] text-white/35">of {TOTAL_SCOPE_COUNT} allowed</span>
@@ -369,7 +369,7 @@ export function CapabilitySurface(props: CapabilitySurfaceProps) {
         </header>
 
         <div className="access-scroll max-w-full flex-1 overflow-x-auto px-3 py-3 [scrollbar-gutter:stable] lg:overflow-x-visible sm:px-6">
-          <div className="w-full min-w-[680px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 sm:min-w-[760px]">
+          <div data-boot-table className="w-full min-w-[680px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 sm:min-w-[760px]">
             <table className="w-full table-fixed border-collapse">
               <caption className="sr-only">SDK capability permission table</caption>
               <thead className="sticky top-0 z-30 bg-gradient-to-r from-[#080808] via-[#0b0b0b] to-black">
