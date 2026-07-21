@@ -29,8 +29,8 @@ dashboard, so the two always agree and the secret never passes through your clip
 1. Push the branch containing `render.yaml`.
 2. Render Dashboard → **New** → **Blueprint**.
 3. Select the repository and the branch.
-4. Render parses `render.yaml` and lists four resources: `conduit-api`,
-   `conduit-dashboard`, `conduit-cache`, `conduit-db`.
+4. Render parses `render.yaml` and lists four resources: `conduit-api-apiconf`,
+   `conduit-dashboard-apiconf`, `conduit-cache`, `conduit-db`.
 5. Fill in the prompted secrets from the table above.
 6. **Apply**. First build takes roughly 5–10 minutes; both web services build the full
    workspace.
@@ -41,12 +41,12 @@ A free web service **cannot receive private-network traffic**, so the dashboard 
 API over its public URL — which means two values in `render.yaml` are hardcoded guesses:
 
 ```yaml
-# conduit-api
+# conduit-api-apiconf
 - key: WEB_ORIGIN
-  value: https://conduit-dashboard.onrender.com
-# conduit-dashboard
+  value: https://conduit-dashboard-apiconf.onrender.com
+# conduit-dashboard-apiconf
 - key: CONDUIT_API_URL
-  value: https://conduit-api.onrender.com
+  value: https://conduit-api-apiconf.onrender.com
 ```
 
 Service names are near-globally-unique on `onrender.com`. If either name was taken, Render
@@ -59,8 +59,8 @@ if they differ, edit `render.yaml`, push, and re-sync the blueprint.
 ## 4 · Verify
 
 ```bash
-API=https://conduit-api.onrender.com
-WEB=https://conduit-dashboard.onrender.com
+API=https://conduit-api-apiconf.onrender.com
+WEB=https://conduit-dashboard-apiconf.onrender.com
 
 # 1. API is alive (first call after idle takes ~1 min — this is the cold start)
 curl -s $API/health
@@ -90,7 +90,7 @@ webhook with the same secrets you entered in step 1:
 # with 20% deliberate duplicates to demonstrate idempotency.
 WEBHOOK_SECRET_MONNIFY='<the secret you entered>' \
   pnpm --filter @conduit/api webhooks:generate -- \
-  --api https://conduit-api.onrender.com --sources monnify --count 100 --dup-rate 0.2
+  --api https://conduit-api-apiconf.onrender.com --sources monnify --count 100 --dup-rate 0.2
 ```
 
 It prints PASS/FAIL on the invariant: the server stored exactly the unique count, and every
@@ -105,7 +105,7 @@ with visible backoff and some will dead-letter, ready to replay from `/dlq`.
 In the Monnify dashboard (sandbox), set the webhook URL to:
 
 ```
-https://conduit-api.onrender.com/webhooks/monnify
+https://conduit-api-apiconf.onrender.com/webhooks/monnify
 ```
 
 `POST /webhooks/:source` is deliberately exempt from `CONDUIT_API_KEY` — Monnify cannot send

@@ -20,9 +20,9 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D20.19-3c873a?logo=nodedotjs&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-29_passing-2ea44f)
-![Build](https://img.shields.io/badge/build-placeholder-lightgrey)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+![Tests](https://img.shields.io/badge/tests-125_passing-2ea44f)
+[![CI](https://github.com/Maxima24/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/Maxima24/conduit/actions/workflows/ci.yml)
+![License](https://img.shields.io/badge/license-MIT-2ea44f)
 
 <br/>
 
@@ -271,11 +271,15 @@ The claim isn't "trust us" — it's measurable. The test: run **N events with in
   </tr>
 </table>
 
-**Links** _(fill in once deployed):_
+**Links** — both services deploy from the one [`render.yaml`](render.yaml) Blueprint:
 
-- **Live app:** `https://<your-vercel-app>.vercel.app` _(placeholder)_
-- **API:** `https://<your-render-service>.onrender.com` _(placeholder)_
+- **Live app:** https://conduit-dashboard-apiconf.onrender.com
+- **API:** https://conduit-api-apiconf.onrender.com
 - **Demo video:** `<link>` _(placeholder)_
+
+> Render appends a suffix if a service name is already taken — confirm both URLs after the
+> first deploy and correct `WEB_ORIGIN` / `CONDUIT_API_URL` in `render.yaml` if they differ.
+> On the free tier the first request after 15 minutes idle cold-starts in roughly a minute.
 
 ---
 
@@ -997,8 +1001,8 @@ The whole stack — API, dashboard, Postgres and Key Value — is one Render Blu
 
 | Service | Type | What it runs |
 | --- | --- | --- |
-| `conduit-api` | web (free) | NestJS API **plus** the delivery worker, outbox dispatcher and reconciler, in-process |
-| `conduit-dashboard` | web (free) | Next.js dashboard and its server-side API proxy |
+| `conduit-api-apiconf` | web (free) | NestJS API **plus** the delivery worker, outbox dispatcher and reconciler, in-process |
+| `conduit-dashboard-apiconf` | web (free) | Next.js dashboard and its server-side API proxy |
 | `conduit-cache` | keyvalue (free) | BullMQ's backing store, `maxmemoryPolicy: noeviction` |
 | `conduit-db` | postgres (free) | Event log, sends, attempts, gaps, outbox |
 
@@ -1124,7 +1128,7 @@ This section is deliberately explicit so reviewers know exactly what is live ver
 
 ## License
 
-No `LICENSE` file is present in the repository yet. _(Placeholder — add a license, e.g. MIT, and update this section and the badge.)_
+Released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 

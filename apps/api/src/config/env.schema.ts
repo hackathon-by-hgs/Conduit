@@ -10,7 +10,22 @@ export const envSchema = z.object({
    * so the deploy fails with a service that is actually running fine.
    */
   PORT: z.coerce.number().int().positive().optional(),
-  DATABASE_URL: z.string().min(1),
+  /**
+   * A DIRECT Postgres connection string. Prisma connects through the `@prisma/adapter-pg`
+   * driver adapter (node-postgres), which speaks the Postgres wire protocol over TCP — so a
+   * Prisma Accelerate / Data Proxy URL (`prisma://`, `prisma+postgres://`) cannot work here.
+   * Those are HTTP endpoints; the driver dials them on :5432 and hangs until ETIMEDOUT,
+   * surfacing as an unrelated-looking failure inside the first query. Reject it at boot.
+   */
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .refine((u) => !/^prisma(\+\w+)?:\/\//.test(u), {
+      message:
+        'DATABASE_URL is a Prisma Accelerate/Data Proxy URL, which the @prisma/adapter-pg ' +
+        'driver adapter cannot connect to. Use a direct Postgres connection string ' +
+        '(postgresql://user:password@host:5432/database).',
+    }),
   REDIS_URL: z.string().min(1),
   WEB_ORIGIN: z.string().min(1).default('http://localhost:3000'),
   RESEND_API_KEY: z.string().default(''),

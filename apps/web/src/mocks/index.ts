@@ -1,9 +1,3 @@
-import type {
-  EventDto,
-  GapSummary,
-  Paginated,
-  ReconcileReportDto,
-} from '@conduit/contracts';
 import type { EventDto, GapSummary, Paginated, ReconcileReportDto } from '@conduit/contracts';
 import { eventList, mockEventDetail, mockReport, mockSends, mockStats } from './fixtures';
 
