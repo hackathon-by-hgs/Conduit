@@ -89,7 +89,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
       </header>
 
       <div className={cx('access-scroll min-h-0 flex-1 overflow-y-auto bg-transparent p-3', transparentLayerClass)}>
-        <section data-summary-section className="grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/[0.06] bg-white/[0.018]">
+        <section data-summary-section className="grid grid-cols-2 overflow-hidden rounded-t-[18px] border border-white/[0.06] bg-white/[0.018]">
           <div className="flex flex-col justify-center border-r border-white/[0.06] bg-transparent p-4">
             <span className="font-mono text-[8px] uppercase tracking-widest text-white/40">Allowed permissions</span>
             <strong data-summary-value className="mt-2 font-sans text-[28px] font-semibold leading-none text-white/90">{grants.length}<small className="ml-1 font-mono text-[11px] text-white/30">/18</small></strong>
@@ -105,7 +105,7 @@ export function PermissionInspector(props: PermissionInspectorProps) {
             <h3 className="text-xs font-medium text-white/60">Effective SDK</h3>
             <span className="font-mono text-[8px] text-white/30">TypeScript</span>
           </header>
-          <pre className={cx('overflow-auto p-3 font-mono text-[10px] leading-relaxed text-white/60', glassInnerClass)} aria-label="Generated SDK policy preview">
+          <pre className={cx('access-scroll max-w-full overflow-x-auto overflow-y-hidden p-3 pb-4 font-mono text-[10px] leading-relaxed text-white/60', glassInnerClass)} aria-label="Generated SDK policy preview">
             <code>
               <span data-sdk-line><b className="text-white">const</b> sdk = conduit.policy({'{'}</span>
               <span data-sdk-line>  entity: <i className="text-red-400">&apos;{entity.id}&apos;</i>,</span>

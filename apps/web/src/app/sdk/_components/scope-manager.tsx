@@ -351,9 +351,9 @@ export function ScopeManager() {
             <div className="relative z-[170] min-w-0">
               <form
                 className={[
-                  'group relative grid h-12 items-center gap-2.5 overflow-hidden rounded-2xl border px-3 transition-[background-color,border-color] duration-200',
+                  'group relative grid h-12 items-center gap-2.5 overflow-hidden rounded-2xl border px-3 transition-[background-color,border-color] duration-200 focus-within:border-[#A01016]/75 focus-within:bg-white/[0.045]',
                   searchFocused
-                    ? 'border-white/[0.09] bg-white/[0.045]'
+                    ? 'border-[#A01016]/75 bg-white/[0.045]'
                     : 'border-white/[0.08] bg-white/[0.035] hover:bg-white/[0.045]',
                 ].join(' ')}
                 style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto' }}
@@ -365,7 +365,7 @@ export function ScopeManager() {
               >
                 <MagnifyingGlass weight="bold" className={['h-[17px] w-[17px] transition-colors duration-200', searchFocused ? 'text-[#e2f0e7]/62' : 'text-[#e2f0e7]/50'].join(' ')} />
                 <input
-                  className="w-full min-w-0 bg-transparent text-[13px] font-sans text-[#f4faf6] outline-none placeholder:text-[#e2f0e7]/30"
+                  className="w-full min-w-0 appearance-none border-0 bg-transparent text-[13px] font-sans text-[#f4faf6] outline-none placeholder:text-[#e2f0e7]/30 focus:!outline-none focus-visible:!outline-none focus-visible:!ring-0 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -564,7 +564,7 @@ export function ScopeManager() {
               </span>
 
               <div className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap md:items-center">
-                <MagneticFillButton type="button" onClick={generatePolicy} fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]" contentClassName="h-full w-full justify-start" className="group flex h-[46px] min-w-[150px] items-center rounded-full bg-white/[0.045] p-1.5 pr-4 text-white hover:bg-white/[0.075] md:min-w-[150px]">
+                <MagneticFillButton type="button" onClick={generatePolicy} fillClassName="bg-[#A01016]" contentClassName="h-full w-full justify-start" className="group flex h-[46px] min-w-[150px] items-center rounded-full bg-white/[0.045] p-1.5 pr-4 text-white hover:bg-white/[0.075] md:min-w-[150px]">
                   <span className="mr-3 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/[0.07] text-white/54 transition-colors group-hover:text-white/90"><FileCode weight="bold" /></span>
                   <span className="flex flex-col justify-center text-left"><strong className="font-sans text-[11px] font-black uppercase tracking-widest text-white/90">Generate</strong><small className="font-sans text-[8px] font-bold uppercase tracking-widest text-white/40">SDK policy</small></span>
                 </MagneticFillButton>
@@ -572,7 +572,7 @@ export function ScopeManager() {
                   type="button"
                   onClick={saveChanges}
                   disabled={!dirty}
-                  fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]"
+                  fillClassName="bg-[#A01016]"
                   contentClassName="h-full w-full justify-start"
                   className={[
                     'group flex h-[46px] min-w-[120px] items-center rounded-full p-1.5 pr-4 disabled:pointer-events-none md:min-w-[130px]',
@@ -588,7 +588,7 @@ export function ScopeManager() {
                   type="button"
                   onClick={publish}
                   disabled={!unpublished}
-                  fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]"
+                  fillClassName="bg-[#A01016]"
                   contentClassName="h-full w-full justify-start"
                   className={[
                     'group flex h-[46px] min-w-[140px] items-center rounded-full p-1.5 pr-4 disabled:pointer-events-none md:min-w-[140px]',
@@ -688,8 +688,8 @@ function CriticalGrantModal({ scopeId, count, onCancel, onConfirm }: { scopeId: 
         <h2 className="mt-2 break-all font-mono text-xl font-semibold text-white">{scopeId}</h2>
         <p className="mt-3 text-sm leading-6 text-white/45">This permission can mutate production policy or credentials. It will be granted to {count} access {count === 1 ? 'entity' : 'entities'}.</p>
         <div className="mt-6 flex justify-end gap-2">
-          <MagneticFillButton type="button" onClick={onCancel} fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]" className="rounded-[12px] border border-white/15 bg-white/[0.02] px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-white/60 hover:border-[#A01016]/40 hover:text-white"><span>Cancel</span></MagneticFillButton>
-          <MagneticFillButton type="button" onClick={onConfirm} fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]" className="flex items-center gap-2 rounded-[12px] border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-red-100 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" weight="bold" /> <span>Confirm grant</span></MagneticFillButton>
+          <MagneticFillButton type="button" onClick={onCancel} fillClassName="bg-[#A01016]" className="rounded-[12px] border border-white/15 bg-white/[0.02] px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-white/60 hover:border-[#A01016]/40 hover:text-white"><span>Cancel</span></MagneticFillButton>
+          <MagneticFillButton type="button" onClick={onConfirm} fillClassName="bg-[#A01016]" className="flex items-center gap-2 rounded-[12px] border border-red-400/70 bg-red-500/15 px-4 py-2.5 font-mono text-[8px] uppercase tracking-[0.14em] text-red-100 hover:bg-red-500/25"><Check className="h-3.5 w-3.5" weight="bold" /> <span>Confirm grant</span></MagneticFillButton>
         </div>
       </div>
     </div>

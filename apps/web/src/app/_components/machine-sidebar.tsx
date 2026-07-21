@@ -27,13 +27,23 @@ function prefersReducedMotion() {
 
 export function ConduitMark() {
   return (
-    <span className="relative grid h-[50px] w-[50px] place-items-center rounded-[18px] border border-white/[0.055] bg-white/[0.035] text-white/90 transition-colors duration-200 group-hover/logo:bg-white/[0.055] group-hover/logo:text-white">
-      <svg viewBox="0 0 44 44" className="h-6 w-6" aria-hidden="true">
+    <span className="relative grid h-16 w-[84px] place-items-center overflow-hidden rounded-2xl  bg-[#A01016]/[0.035] text-white/92 transition-[background-color,border-color,color] duration-200  group-hover/logo:bg-[#A01016]/[0.055] group-hover/logo:text-white">
+      <span className="absolute inset-y-0 left-0 w-[54px] bg-[radial-gradient(circle_at_center,rgba(160,16,22,0.18),transparent_70%)]" aria-hidden="true" />
+      <svg viewBox="0 0 44 44" className="relative z-10 h-6 w-6" aria-hidden="true">
         <path d="M8 8h11v5h-6v18h6v5H8z" fill="currentColor" />
         <path d="M25 8h11v28H25v-5h6V13h-6z" fill="currentColor" />
         <path d="M18 19h8v6h-8z" fill="currentColor" />
       </svg>
-      <span className="absolute -bottom-px left-1/2 h-px w-7 -translate-x-1/2 rounded-full bg-[#A01016]" aria-hidden="true" />
+      {/* <span className="absolute inset-x-0 top-0 h-px bg-[#A01016]/85" aria-hidden="true" /> */}
+      {/* <span className="absolute inset-x-0 bottom-0 h-px bg-[#A01016]/65" aria-hidden="true" /> */}
+      {/* <span className="absolute bottom-0 left-0 top-0 w-px bg-[#A01016]/85" aria-hidden="true" /> */}
+      {/* <span className="absolute bottom-0 right-0 top-0 w-px bg-[#A01016]/85" aria-hidden="true" /> */}
+      <span className="absolute bottom-[-2px] left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-[#A01016]" aria-hidden="true" />
+      <span className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-1" aria-hidden="true">
+        <span className="h-px w-3 bg-[#A01016]/65" />
+        <span className="h-px w-2 bg-[#A01016]/40" />
+        <span className="h-px w-3 bg-[#A01016]/55" />
+      </span>
     </span>
   );
 }
@@ -73,7 +83,7 @@ export function SidebarLogo() {
       onMouseLeave={() => animateLogo(false)}
       onFocus={() => animateLogo(true)}
       onBlur={() => animateLogo(false)}
-      className="group/logo relative hidden h-[112px] w-full shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-white/15 sm:flex"
+      className="group/logo relative hidden h-[112px] w-full shrink-0 items-center justify-center outline-none focus-visible:!outline-none sm:flex"
     >
       <ConduitMark />
     </Link>
@@ -220,14 +230,24 @@ export function StatusBadge({ state = 'live' }: StatusBadgeProps) {
   );
 
   return (
-    <div className="hidden w-full shrink-0 px-2 pb-5 pt-3 sm:block">
-      <div className="mx-auto grid w-[58px] place-items-center gap-1.5 rounded-[17px] border border-white/[0.055] bg-white/[0.025] px-2 py-2.5 font-mono uppercase tracking-[0.16em] text-white/38">
-        <span className="text-[6.5px] leading-none">SDK</span>
+    <div className="hidden w-full shrink-0 pb-5 pt-3 sm:block">
+      <div className="relative mx-auto grid h-16 w-[84px] place-items-center gap-1.5 overflow-hidden rounded-2xl  bg-[#A01016]/[0.028] px-2 py-2.5 font-mono uppercase tracking-[0.16em] text-white/44">
+        <span className="absolute inset-y-0 left-0 w-[54px] bg-[radial-gradient(circle_at_center,rgba(160,16,22,0.16),transparent_72%)]" aria-hidden="true" />
+        <span className="relative z-10 text-[6.5px] leading-none">SDK</span>
         <span className="relative grid h-2.5 w-2.5 place-items-center" aria-hidden="true">
           <span ref={pulseRef} className={cx('absolute h-2.5 w-2.5 rounded-full opacity-22', tone)} />
           <span ref={dotRef} className={cx('relative h-1.5 w-1.5 rounded-full', tone)} />
         </span>
-        <span className="text-[6px] leading-none">{copy}</span>
+        <span className="relative z-10 text-[6px] leading-none">{copy}</span>
+        {/* <span className="absolute inset-x-0 top-0 h-px bg-[#A01016]/70" aria-hidden="true" />
+        <span className="absolute inset-x-0 bottom-0 h-px bg-[#A01016]/55" aria-hidden="true" />
+        <span className="absolute bottom-0 left-0 top-0 w-px bg-[#A01016]/75" aria-hidden="true" />
+        <span className="absolute bottom-0 right-0 top-0 w-px bg-[#A01016]/75" aria-hidden="true" /> */}
+        <span className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-1" aria-hidden="true">
+          <span className="h-px w-3 bg-[#A01016]/60" />
+          <span className="h-px w-2 bg-[#A01016]/35" />
+          <span className="h-px w-3 bg-[#A01016]/50" />
+        </span>
       </div>
     </div>
   );

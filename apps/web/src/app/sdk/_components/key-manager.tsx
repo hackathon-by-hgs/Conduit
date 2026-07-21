@@ -184,11 +184,11 @@ export function KeyManager() {
             </p>
           </div>
 
-          <div className="command-dock flex w-full flex-wrap items-center gap-px sm:ml-auto sm:w-auto sm:justify-end">
-            <MagneticFillLink href="/sdk/scopes" fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]" className="inline-flex h-11 items-center gap-2 rounded-full bg-white/[0.04] px-4 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/62 hover:bg-white/[0.07] hover:text-white">
+          <div className="command-dock flex w-full flex-wrap items-center gap-5 sm:ml-auto sm:w-auto sm:justify-end">
+            <MagneticFillLink href="/sdk/scopes" fillClassName="bg-[#A01016]" className="inline-flex h-11 items-center gap-2 rounded-2xl bg-white/[0.04] px-4 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/62 hover:bg-white/[0.07] hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5" /> <span>Permissions</span>
             </MagneticFillLink>
-            <MagneticFillButton type="button" onClick={() => openConstructor()} fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#A01016] px-4 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-[#bd151d]">
+            <MagneticFillButton type="button" onClick={() => openConstructor()} fillClassName="bg-[#A01016]" className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#A01016] px-4 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-[#bd151d]">
               <Plus className="h-3.5 w-3.5" /> <span>Generate key</span>
             </MagneticFillButton>
           </div>
@@ -419,8 +419,8 @@ function CredentialInspector({
           <MagneticFillButton
             type="button"
             onClick={() => requestClose(onRotate)}
-            fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] rounded-bl-[22px] bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-[#bd151d]"
+            fillClassName="bg-[#A01016]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] rounded-bl-[22px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d]"
           >
             <ArrowsClockwise className="h-4 w-4" weight="bold" /> <span>Rotate credential</span>
           </MagneticFillButton>
@@ -428,8 +428,8 @@ function CredentialInspector({
             type="button"
             disabled={record.status === 'Revoked'}
             onClick={onRevoke}
-            fillClassName="bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]"
-            className="inline-flex h-12 items-center justify-center rounded-[16px] bg-white/[0.025] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-red-300/38 hover:bg-red-500/10 hover:text-red-100 disabled:pointer-events-none disabled:opacity-35"
+            fillClassName="bg-[#A01016]"
+            className="inline-flex h-12 items-center justify-center rounded-[16px] border border-white/[0.055] bg-white/[0.025] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-red-300/38 hover:border-[#A01016]/45 hover:bg-red-500/10 hover:text-red-100 disabled:pointer-events-none disabled:opacity-35"
           >
             <span>Revoke access</span>
           </MagneticFillButton>
@@ -576,8 +576,8 @@ function CredentialConstructor(props: ConstructorProps) {
               <MagneticFillButton
                 type="button"
                 onClick={onCopy}
-                fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]"
-                className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-[15px] bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-[#bd151d]"
+                fillClassName="bg-[#A01016]"
+                className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-[15px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d]"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span>{copied ? 'Copied to clipboard' : 'Copy secret'}</span>
@@ -591,15 +591,17 @@ function CredentialConstructor(props: ConstructorProps) {
               }}
               className="access-scroll flex h-full flex-col overflow-y-auto px-6 py-6 sm:px-8"
             >
-              <FieldLabel>Key label</FieldLabel>
-              <input
-                value={label}
-                onChange={(event) => onLabelChange(event.target.value)}
-                placeholder="Production worker"
-                className="mt-2 h-[68px] rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-6 font-sans text-[17px] font-semibold text-white outline-none transition-[background-color,border-color] duration-180 placeholder:text-white/24 hover:bg-white/[0.055] focus:border-white/[0.16] focus:bg-white/[0.06]"
-              />
+              <div className="pb-5 pt-3">
+                <FieldLabel>Key label</FieldLabel>
+                <input
+                  value={label}
+                  onChange={(event) => onLabelChange(event.target.value)}
+                  placeholder="Production worker"
+                  className="mt-2 h-[68px] rounded-[22px] border border-white/[0.1] bg-white/[0.04] px-6 font-sans text-[17px] font-semibold text-white outline-none transition-[background-color,border-color] duration-180 placeholder:text-white/24 hover:bg-white/[0.055] focus:border-white/[0.16] focus:bg-white/[0.06]"
+                />
+              </div>
 
-              <FieldLabel className="mt-6">Assigned team</FieldLabel>
+              <FieldLabel>Assigned team</FieldLabel>
               <div ref={teamDropdownRef} className="relative mt-2">
                 <button
                   type="button"
@@ -710,8 +712,8 @@ function CredentialConstructor(props: ConstructorProps) {
               </p>
               <MagneticFillButton
                 type="submit"
-                fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]"
-                className="mt-4 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[16px] bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:bg-[#bd151d]"
+                fillClassName="bg-[#A01016]"
+                className="mt-4 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[16px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d]"
               >
                 <Plus className="h-4 w-4" /> <span>Generate credential</span>
               </MagneticFillButton>
@@ -747,8 +749,13 @@ function DrawerHeader({
         type="button"
         onClick={onClose}
         aria-label="Close panel"
-        fillClassName="bg-[linear-gradient(135deg,#050505_0%,#2a2a2a_100%)]"
-        className={['grid shrink-0 place-items-center rounded-full bg-white text-black/72 hover:bg-white hover:text-white', compact ? 'h-10 w-10' : 'h-12 w-12'].join(' ')}
+        fillClassName="bg-[#A01016]"
+        contentClassName="h-full w-full"
+        className={[
+          'after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-px after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-[#A01016]/65 after:transition-[width,background-color] after:duration-300 hover:after:w-5 hover:after:bg-white/80',
+          'inline-flex shrink-0 items-center justify-center border border-white/[0.08] bg-white/[0.035] text-white/58 hover:border-[#A01016]/65 hover:bg-white/[0.055] hover:text-white',
+          compact ? 'h-10 w-10 rounded-[14px]' : 'h-11 w-11 rounded-[15px]',
+        ].join(' ')}
       >
         <X className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
       </MagneticFillButton>

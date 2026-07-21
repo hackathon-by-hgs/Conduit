@@ -169,7 +169,7 @@ export function SimulationLane({ entityLabel, grants }: SimulationLaneProps) {
             type="button"
             onClick={runTest}
             disabled={running}
-            fillClassName="bg-[linear-gradient(135deg,#050505_0%,#3a070a_100%)]"
+            fillClassName="bg-[#A01016]"
             className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#A01016] font-sans text-[13px] font-semibold text-white hover:bg-[#bd151d] disabled:pointer-events-none disabled:opacity-55"
           >
             <Play className="h-4 w-4" weight="fill" />

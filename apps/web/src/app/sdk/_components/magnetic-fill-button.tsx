@@ -16,13 +16,16 @@ import {
 type MagneticElement = HTMLButtonElement | HTMLAnchorElement;
 
 const MAGNETIC_BASE =
-  'group/magnetic relative isolate overflow-hidden transition-[transform,color,background-color,border-color] duration-300 ease-[cubic-bezier(.23,1,.32,1)] hover:scale-[0.965] active:scale-[0.94] disabled:pointer-events-none disabled:opacity-55';
+  'group/magnetic relative isolate overflow-hidden border border-transparent transition-[transform,color,background-color,border-color] duration-300 ease-[cubic-bezier(.23,1,.32,1)] hover:scale-[0.965] active:scale-[0.94] disabled:pointer-events-none disabled:opacity-55';
 
 const MAGNETIC_FILL =
   'pointer-events-none absolute left-[var(--magnetic-fill-x)] top-[var(--magnetic-fill-y)] z-0 size-[var(--magnetic-fill-size)] -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform';
 
 const MAGNETIC_CONTENT =
   'relative z-10 flex items-center justify-center gap-2 transition-colors duration-300';
+
+const MAGNETIC_CONTENT_ACTIVE =
+  'font-extrabold text-white [&_*]:!font-extrabold [&_*]:!text-white';
 
 function useMagneticFill() {
   const ref = useRef<MagneticElement | null>(null);
@@ -83,7 +86,7 @@ type MagneticFillButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function MagneticFillButton({
   children,
   className = '',
-  fillClassName = 'bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]',
+  fillClassName = 'bg-[#A01016]',
   contentClassName = '',
   onMouseEnter,
   onMouseLeave,
@@ -116,7 +119,7 @@ export function MagneticFillButton({
           fillClassName,
         ].join(' ')}
       />
-      <span className={[MAGNETIC_CONTENT, contentClassName].join(' ')}>
+      <span className={[MAGNETIC_CONTENT, contentClassName, magnetic.hovered ? MAGNETIC_CONTENT_ACTIVE : ''].join(' ')}>
         {children}
       </span>
     </button>
@@ -133,7 +136,7 @@ type MagneticFillLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
 export function MagneticFillLink({
   children,
   className = '',
-  fillClassName = 'bg-[linear-gradient(135deg,#A01016_0%,#ff434c_100%)]',
+  fillClassName = 'bg-[#A01016]',
   contentClassName = '',
   onMouseEnter,
   onMouseLeave,
@@ -168,7 +171,7 @@ export function MagneticFillLink({
           fillClassName,
         ].join(' ')}
       />
-      <span className={[MAGNETIC_CONTENT, contentClassName].join(' ')}>
+      <span className={[MAGNETIC_CONTENT, contentClassName, magnetic.hovered ? MAGNETIC_CONTENT_ACTIVE : ''].join(' ')}>
         {children}
       </span>
     </Link>
