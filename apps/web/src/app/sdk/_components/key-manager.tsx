@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
 import {
@@ -365,20 +366,20 @@ function CredentialInspector({
       .to(overlayRef.current, { autoAlpha: 0, duration: 0.16, ease: 'power2.out' }, '<');
   };
 
-  return (
+  const panel = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[170] flex justify-end bg-black/58 p-0 backdrop-blur-[3px] sm:p-3"
+      className="fixed inset-0 z-[170] flex h-[100dvh] max-h-[100dvh] justify-end overflow-hidden bg-black/58 p-0 backdrop-blur-[3px] sm:p-3"
       onMouseDown={() => requestClose()}
     >
       <aside
         ref={drawerRef}
-        className="relative flex h-full w-full max-w-[540px] flex-col overflow-hidden rounded-none border border-white/[0.08] bg-[#050505]/96 text-white backdrop-blur-2xl sm:rounded-[24px]"
+        className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[540px] flex-col overflow-hidden rounded-none border border-white/[0.08] bg-[#050505]/96 text-white backdrop-blur-2xl sm:h-full sm:max-h-full sm:rounded-[24px]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <DrawerHeader index="02" label="Credential inspector" title={record.id} compact onClose={() => requestClose()} />
 
-        <div className="access-scroll min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+8.5rem)] min-[420px]:pb-[calc(env(safe-area-inset-bottom)+5.75rem)]">
+        <div className="access-scroll min-h-0 flex-1 basis-0 overflow-y-auto pb-4">
           <section className="px-5 py-5 sm:px-6">
             <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.24em] text-white/32">
               {record.environment} / {record.status}
@@ -415,14 +416,14 @@ function CredentialInspector({
           </section>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 z-20 grid grid-cols-1 gap-2 border-t border-white/[0.07] bg-black/80 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl min-[420px]:grid-cols-2">
+        <div className="relative z-20 grid shrink-0 grid-cols-1 gap-2 border-t border-white/[0.07] bg-black/90 px-2 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] pt-2 backdrop-blur-xl min-[380px]:grid-cols-2 sm:bg-black/80">
           <MagneticFillButton
             type="button"
             onClick={() => requestClose(onRotate)}
             fillClassName="bg-[#A01016]"
-            className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-[15px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.12em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d] sm:h-12 sm:rounded-[16px] sm:rounded-bl-[22px] sm:tracking-[0.14em]"
+            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-[14px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[7px] font-semibold uppercase tracking-[0.08em] text-white hover:border-[#A01016] min-[390px]:gap-2 min-[390px]:text-[7.5px] sm:h-12 sm:rounded-[16px] sm:rounded-bl-[22px] sm:text-[8px] sm:tracking-[0.14em]"
           >
-            <ArrowsClockwise className="h-4 w-4 shrink-0" weight="bold" />
+            <ArrowsClockwise className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" weight="bold" />
             <span className="truncate">Rotate credential</span>
           </MagneticFillButton>
           <MagneticFillButton
@@ -430,7 +431,7 @@ function CredentialInspector({
             disabled={record.status === 'Revoked'}
             onClick={onRevoke}
             fillClassName="bg-[#A01016]"
-            className="inline-flex h-11 min-w-0 items-center justify-center rounded-[15px] border border-white/[0.075] bg-white/[0.035] font-mono text-[8px] font-semibold uppercase tracking-[0.12em] text-red-100/58 hover:border-[#A01016]/45 hover:bg-red-500/10 hover:text-red-100 disabled:pointer-events-none disabled:opacity-35 sm:h-12 sm:rounded-[16px] sm:tracking-[0.14em]"
+            className="inline-flex h-10 min-w-0 items-center justify-center rounded-[14px] border border-white/[0.075] bg-white/[0.035] font-mono text-[7px] font-semibold uppercase tracking-[0.08em] text-red-100/58 hover:border-[#A01016]/55 hover:bg-white/[0.045] hover:text-red-100 disabled:pointer-events-none disabled:opacity-35 min-[390px]:text-[7.5px] sm:h-12 sm:rounded-[16px] sm:text-[8px] sm:tracking-[0.14em]"
           >
             <span className="truncate">Revoke access</span>
           </MagneticFillButton>
@@ -438,6 +439,8 @@ function CredentialInspector({
       </aside>
     </div>
   );
+
+  return typeof document === 'undefined' ? panel : createPortal(panel, document.body);
 }
 
 type ConstructorProps = {
@@ -558,27 +561,27 @@ function CredentialConstructor(props: ConstructorProps) {
 
         <div ref={contentRef} className="min-h-0 flex-1 overflow-hidden">
           {generatedKey ? (
-            <div className="access-scroll flex h-full flex-col justify-start overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
-              <span className="grid h-10 w-10 place-items-center rounded-[14px] bg-[#A01016] text-white">
+            <div className="access-scroll flex h-full flex-col justify-start overflow-y-auto px-4 py-4 sm:px-7 sm:py-6">
+              <span className="grid h-9 w-9 place-items-center rounded-[13px] bg-[#A01016] text-white sm:h-10 sm:w-10 sm:rounded-[14px]">
                 <ShieldCheck className="h-4 w-4" weight="bold" />
               </span>
-              <p className="mt-5 font-mono text-[7.5px] font-semibold uppercase tracking-[0.22em] text-[#d14a51]">
+              <p className="mt-4 font-mono text-[7px] font-semibold uppercase tracking-[0.2em] text-[#d14a51] sm:mt-5 sm:text-[7.5px] sm:tracking-[0.22em]">
                 Key material generated
               </p>
-              <h2 className="mt-2 max-w-[440px] font-sans text-[clamp(24px,3.6vw,30px)] font-semibold leading-[1.02] tracking-[-0.055em] text-white">
+              <h2 className="mt-2 max-w-[420px] font-sans text-[clamp(20px,5vw,24px)] font-semibold leading-[1.02] tracking-[-0.05em] text-white sm:text-[clamp(22px,3.4vw,27px)]">
                 This secret appears once.
               </h2>
-              <p className="mt-3 max-w-[440px] text-[11px] leading-5 text-white/48">
+              <p className="mt-3 max-w-[420px] text-[10px] leading-5 text-white/48">
                 Store it in your secret manager before closing this panel. Conduit will not show this value again.
               </p>
-              <code className="mt-6 block max-w-full overflow-x-auto rounded-[16px] border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 font-mono text-[10px] font-semibold text-white/90">
+              <code className="mt-5 block max-w-full overflow-x-auto rounded-[15px] border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 font-mono text-[9px] font-semibold text-white/90 sm:mt-6 sm:rounded-[16px] sm:px-4 sm:py-3.5 sm:text-[10px]">
                 {generatedKey}
               </code>
               <MagneticFillButton
                 type="button"
                 onClick={onCopy}
                 fillClassName="bg-[#A01016]"
-                className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-[15px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d]"
+                className="mt-2 inline-flex h-10 items-center justify-center gap-2 rounded-[14px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[7.5px] font-semibold uppercase tracking-[0.12em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d] sm:h-11 sm:rounded-[15px] sm:text-[8px] sm:tracking-[0.14em]"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span>{copied ? 'Copied to clipboard' : 'Copy secret'}</span>
@@ -590,15 +593,15 @@ function CredentialConstructor(props: ConstructorProps) {
                 event.preventDefault();
                 onGenerate();
               }}
-              className="access-scroll flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-8 sm:py-6"
+              className="access-scroll flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+0.875rem)] sm:px-8 sm:py-6"
             >
-              <div className="pb-5 pt-3">
+              <div className="pb-4 pt-2 sm:pb-5 sm:pt-3">
                 <FieldLabel>Key label</FieldLabel>
                 <input
                   value={label}
                   onChange={(event) => onLabelChange(event.target.value)}
                   placeholder="Production worker"
-                  className="mt-2 h-[60px] rounded-[20px] border border-white/[0.1] bg-white/[0.04] px-4 font-sans text-[16px] font-semibold text-white outline-none transition-[background-color,border-color] duration-180 placeholder:text-white/24 hover:bg-white/[0.055] focus:border-white/[0.16] focus:bg-white/[0.06] sm:h-[68px] sm:rounded-[22px] sm:px-6 sm:text-[17px]"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-white/[0.1] bg-white/[0.04] px-3.5 font-sans text-[12px] font-semibold text-white outline-none transition-[background-color,border-color] duration-180 placeholder:text-white/24 hover:bg-white/[0.055] focus:border-white/[0.16] focus:bg-white/[0.06] sm:h-[56px] sm:rounded-[18px] sm:px-5 sm:text-[14px]"
                 />
               </div>
 
@@ -610,7 +613,7 @@ function CredentialConstructor(props: ConstructorProps) {
                   aria-expanded={teamOpen}
                   onClick={() => setTeamOpen((open) => !open)}
                   className={[
-                    'flex h-[52px] w-full items-center justify-between rounded-[18px] border px-4 font-sans text-[15px] font-semibold outline-none',
+                    'flex h-11 w-full items-center justify-between rounded-[15px] border px-3.5 font-sans text-[12px] font-semibold outline-none sm:h-[50px] sm:rounded-[17px] sm:px-4 sm:text-[14px]',
                     teamOpen
                       ? 'border-[#A01016]/65 bg-white/[0.065]'
                       : 'border-white/[0.08] bg-white/[0.035] hover:bg-white/[0.05]',
@@ -640,7 +643,7 @@ function CredentialConstructor(props: ConstructorProps) {
                             setTeamOpen(false);
                           }}
                           className={[
-                            'flex h-11 w-full items-center justify-between rounded-[14px] px-3.5 font-sans text-[14px] font-semibold',
+                            'flex h-10 w-full items-center justify-between rounded-[13px] px-3.5 font-sans text-[12px] font-semibold sm:h-11 sm:text-[13px]',
                             active ? 'bg-[#A01016]/16 text-white' : 'text-white/56 hover:bg-white/[0.055] hover:text-white',
                           ].join(' ')}
                         >
@@ -653,8 +656,8 @@ function CredentialConstructor(props: ConstructorProps) {
                 ) : null}
               </div>
 
-              <FieldLabel className="mt-6">Scope preset</FieldLabel>
-              <div className="relative mt-2 grid h-[48px] grid-cols-3 rounded-full bg-black/55 p-1">
+              <FieldLabel className="mt-5 sm:mt-6">Scope preset</FieldLabel>
+              <div className="relative mt-2 grid h-8 grid-cols-3 rounded-full bg-black/55 p-1 sm:h-10">
                 <span
                   aria-hidden="true"
                   className={['absolute bottom-1 left-1 top-1 w-[calc((100%_-_8px)/3)] rounded-full bg-[#A01016] transition-transform duration-[260ms] ease-[cubic-bezier(.23,1,.32,1)]', presetThumbClass].join(' ')}
@@ -665,7 +668,7 @@ function CredentialConstructor(props: ConstructorProps) {
                     type="button"
                     onClick={() => onPresetChange(item)}
                     className={[
-                      'relative z-10 rounded-full font-mono text-[8px] font-semibold uppercase tracking-[0.16em]',
+                      'relative z-10 rounded-full font-mono text-[6.5px] font-semibold uppercase tracking-[0.12em] sm:text-[7.5px] sm:tracking-[0.14em]',
                       preset === item ? 'text-white' : 'text-white/34 hover:text-white/62',
                     ].join(' ')}
                   >
@@ -674,12 +677,12 @@ function CredentialConstructor(props: ConstructorProps) {
                 ))}
               </div>
 
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-5 flex items-center justify-between sm:mt-6">
                 <FieldLabel>Effective scopes</FieldLabel>
-                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/38">{selectedScopes.length} / 18</span>
+                <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white/38">{selectedScopes.length} / 18</span>
               </div>
 
-              <div className="access-scroll mt-2 max-h-[150px] overflow-y-auto rounded-[18px] border border-white/[0.06] bg-white/[0.025] sm:max-h-[244px] sm:rounded-[20px]">
+              <div className="access-scroll mt-2 max-h-[132px] overflow-y-auto rounded-[16px] border border-white/[0.06] bg-white/[0.025] sm:max-h-[244px] sm:rounded-[20px]">
                 {ALL_SCOPES.map((scope, index) => {
                   const checked = selectedScopes.includes(scope.id);
                   return (
@@ -689,18 +692,18 @@ function CredentialConstructor(props: ConstructorProps) {
                       disabled={preset !== 'custom'}
                       onClick={() => onToggleScope(scope.id)}
                       className={[
-                        'group/scope grid h-14 w-full grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.045] px-4 text-left transition-[background-color,opacity] duration-150 last:border-b-0',
+                        'group/scope grid h-10 w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.045] px-3 text-left transition-[background-color,opacity] duration-150 last:border-b-0 sm:h-12 sm:grid-cols-[38px_minmax(0,1fr)_auto] sm:gap-3 sm:px-4',
                         checked ? 'bg-white/[0.035]' : 'bg-transparent',
                         preset === 'custom' ? 'hover:bg-white/[0.055]' : 'cursor-not-allowed opacity-65',
                       ].join(' ')}
                     >
-                      <span className={['font-mono text-[10px] font-semibold', checked ? 'text-white/80' : 'text-white/34'].join(' ')}>
+                      <span className={['font-mono text-[8px] font-semibold sm:text-[9px]', checked ? 'text-white/80' : 'text-white/34'].join(' ')}>
                         {String(index + 1).padStart(2, '0')}
                       </span>
-                      <code className={['min-w-0 truncate font-mono text-[12px] font-semibold', checked ? 'text-white/90' : 'text-white/48'].join(' ')}>
+                      <code className={['min-w-0 truncate font-mono text-[9px] font-semibold sm:text-[11px]', checked ? 'text-white/90' : 'text-white/48'].join(' ')}>
                         {scope.id}
                       </code>
-                      <i className={['not-italic font-mono text-[8px] font-semibold uppercase tracking-[0.14em]', checked ? 'text-[#d14a51]' : 'text-white/34'].join(' ')}>
+                      <i className={['not-italic font-mono text-[7px] font-semibold uppercase tracking-[0.12em] sm:text-[8px] sm:tracking-[0.14em]', checked ? 'text-[#d14a51]' : 'text-white/34'].join(' ')}>
                         {checked ? 'On' : 'Off'}
                       </i>
                     </button>
@@ -708,13 +711,13 @@ function CredentialConstructor(props: ConstructorProps) {
                 })}
               </div>
 
-              <p className="mt-6 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/28">
+              <p className="mt-4 font-mono text-[7.5px] font-semibold uppercase tracking-[0.14em] text-white/28 sm:mt-5 sm:text-[8px] sm:tracking-[0.16em]">
                 Key material cannot be recovered after this panel closes.
               </p>
               <MagneticFillButton
                 type="submit"
                 fillClassName="bg-[#A01016]"
-                className="sticky bottom-0 z-10 mt-4 inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[16px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-white hover:border-[#ff5660]/70 hover:bg-[#bd151d]"
+                className="sticky bottom-0 z-10 mt-4 inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[14px] border border-[#A01016]/50 bg-[#A01016] font-mono text-[7px] font-semibold uppercase tracking-[0.12em] text-white hover:border-[#A01016] sm:h-11 sm:rounded-[15px] sm:text-[7.5px] sm:tracking-[0.14em]"
               >
                 <Plus className="h-4 w-4" /> <span>Generate credential</span>
               </MagneticFillButton>
@@ -740,11 +743,11 @@ function DrawerHeader({
   onClose: () => void;
 }) {
   return (
-    <header className={['flex shrink-0 items-start gap-3 border-b border-white/[0.07] bg-white/[0.012] sm:gap-4', compact ? 'px-4 py-3.5 sm:px-6' : 'px-4 py-4 sm:px-8 sm:py-5'].join(' ')}>
-      <span className={['mt-1 font-mono font-semibold text-[#d14a51]/70', compact ? 'text-[9px]' : 'text-[11px]'].join(' ')}>{index}</span>
+    <header className={['flex shrink-0 items-start gap-3 border-b border-white/[0.07] bg-white/[0.012] sm:gap-4', compact ? 'px-4 py-3.5 sm:px-6' : 'px-4 py-3 sm:px-7 sm:py-4'].join(' ')}>
+      <span className={['mt-1 font-mono font-semibold text-[#d14a51]/70', compact ? 'text-[9px]' : 'text-[9px] sm:text-[10px]'].join(' ')}>{index}</span>
       <div className="min-w-0 flex-1">
-        <p className={['font-mono font-semibold uppercase tracking-[0.24em] text-white/36', compact ? 'text-[8px]' : 'text-[10px]'].join(' ')}>{label}</p>
-        <h2 className={['mt-1.5 truncate font-sans font-semibold leading-none tracking-[-0.045em] text-white', compact ? 'text-[20px] sm:text-[21px]' : 'text-[24px] sm:text-[28px]'].join(' ')}>{title}</h2>
+        <p className={['font-mono font-semibold uppercase tracking-[0.24em] text-white/36', compact ? 'text-[8px]' : 'text-[7.5px] sm:text-[9px]'].join(' ')}>{label}</p>
+        <h2 className={['mt-1.5 truncate font-sans font-semibold leading-none tracking-[-0.045em] text-white', compact ? 'text-[20px] sm:text-[21px]' : 'text-[20px] sm:text-[23px]'].join(' ')}>{title}</h2>
       </div>
       <MagneticFillButton
         type="button"
@@ -755,10 +758,10 @@ function DrawerHeader({
         className={[
           'after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-px after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-[#A01016]/65 after:transition-[width,background-color] after:duration-300 hover:after:w-5 hover:after:bg-white/80',
           'inline-flex shrink-0 items-center justify-center border border-white/[0.08] bg-white/[0.035] text-white/58 hover:border-[#A01016]/65 hover:bg-white/[0.055] hover:text-white',
-          compact ? 'h-10 w-10 rounded-[14px]' : 'h-11 w-11 rounded-[15px]',
+          compact ? 'h-10 w-10 rounded-[14px]' : 'h-10 w-10 rounded-[14px] sm:h-11 sm:w-11 sm:rounded-[15px]',
         ].join(' ')}
       >
-        <X className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+        <X className={compact ? 'h-4 w-4' : 'h-4 w-4 sm:h-5 sm:w-5'} />
       </MagneticFillButton>
     </header>
   );
@@ -784,7 +787,7 @@ function InspectorMetric({ label, value }: { label: string; value: string }) {
 
 function FieldLabel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <label className={['block font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-white/34', className].join(' ')}>
+    <label className={['block font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/34 sm:text-[8.5px]', className].join(' ')}>
       {children}
     </label>
   );

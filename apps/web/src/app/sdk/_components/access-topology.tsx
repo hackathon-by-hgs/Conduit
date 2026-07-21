@@ -75,22 +75,22 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
   );
 
   return (
-    <section ref={rootRef} className="w-full bg-transparent p-3 sm:p-6">
-      <div className="mb-[18px] flex flex-wrap items-end justify-between gap-4 border-b border-white/[0.07] pb-[18px] sm:gap-6">
+    <section ref={rootRef} className="w-full bg-transparent p-2 sm:p-6">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.07] pb-3 sm:mb-[18px] sm:gap-6 sm:pb-[18px]">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Access topology</p>
-          <h2 className="mt-[5px] max-w-[720px] font-sans text-[clamp(20px,6vw,26px)] font-semibold leading-[1.08] tracking-[-0.015em] text-white/90">See what this identity can reach</h2>
+          <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-white/40 sm:text-[10px] sm:tracking-[0.2em]">Access topology</p>
+          <h2 className="mt-1 max-w-[720px] font-sans text-[clamp(18px,5vw,22px)] font-semibold leading-[1.08] tracking-[-0.015em] text-white/90 sm:mt-[5px] sm:text-[clamp(20px,6vw,26px)]">See what this identity can reach</h2>
         </div>
-        <span className="whitespace-nowrap font-mono text-[9px] text-white/40">{activeEndpointCount} of {ENDPOINTS.length} routes open</span>
+        <span className="whitespace-nowrap font-mono text-[8px] text-white/40 sm:text-[9px]">{activeEndpointCount} of {ENDPOINTS.length} routes open</span>
       </div>
 
-      <div className="access-scroll w-full max-w-full overflow-x-auto overflow-y-hidden rounded-[18px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-3 sm:rounded-[22px] sm:p-4">
+      <div className="access-scroll w-full max-w-full overflow-x-auto overflow-y-hidden rounded-[16px] bg-gradient-to-b from-[#080808]/96 via-[#0b0b0b]/96 to-black/96 p-2 sm:rounded-[22px] sm:p-4">
         <div
-          className="relative h-[520px] w-full min-w-[760px] overflow-hidden rounded-[16px] !bg-black/[0.18] sm:h-[590px] sm:min-w-[920px] sm:rounded-[18px]"
+          className="relative h-[420px] w-full min-w-[620px] overflow-hidden rounded-[14px] !bg-black/[0.18] sm:h-[500px] sm:min-w-[760px] sm:rounded-[18px] lg:h-[590px] lg:min-w-[920px]"
         >
-          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(ENTITY.x / STAGE.width) * 100}%`, top: 16 }}>Identity</div>
-          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(GROUP.x / STAGE.width) * 100}%`, top: 16 }}>Permission groups</div>
-          <div className="absolute z-[2] font-mono text-[9px] uppercase tracking-[0.16em] !text-white/40" style={{ left: `${(ENDPOINT.x / STAGE.width) * 100}%`, top: 16 }}>API routes</div>
+          <div className="absolute z-[2] font-mono text-[7px] uppercase tracking-[0.14em] !text-white/40 sm:text-[9px] sm:tracking-[0.16em]" style={{ left: `${(ENTITY.x / STAGE.width) * 100}%`, top: 12 }}>Identity</div>
+          <div className="absolute z-[2] font-mono text-[7px] uppercase tracking-[0.14em] !text-white/40 sm:text-[9px] sm:tracking-[0.16em]" style={{ left: `${(GROUP.x / STAGE.width) * 100}%`, top: 12 }}>Permission groups</div>
+          <div className="absolute z-[2] font-mono text-[7px] uppercase tracking-[0.14em] !text-white/40 sm:text-[9px] sm:tracking-[0.16em]" style={{ left: `${(ENDPOINT.x / STAGE.width) * 100}%`, top: 12 }}>API routes</div>
 
           <svg
             className="absolute inset-0 z-[1] h-full w-full"
@@ -133,15 +133,15 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
           </svg>
 
           <div
-            className="absolute z-[3] flex flex-col justify-center rounded-[18px] !bg-[#95040956] p-4 text-white border !border-[#A01016]/40 backdrop-blur-[3px] transition-[background-color] duration-200"
+            className="absolute z-[3] flex flex-col justify-center rounded-[14px] border !border-[#A01016]/40 !bg-[#95040956] p-2.5 text-white backdrop-blur-[3px] transition-[background-color] duration-200 sm:rounded-[18px] sm:p-4"
             style={frameStyle(ENTITY)}
           >
-            <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/70">Simulating</span>
-            <div className="my-[7px] flex items-center gap-[10px]">
-              <UsersThree weight="duotone" className="h-5 w-5" />
-              <strong className="text-[17px] leading-none">{entity.label}</strong>
+            <span className="font-mono text-[7px] uppercase tracking-[0.1em] text-white/70 sm:text-[9px]">Simulating</span>
+            <div className="my-1.5 flex items-center gap-2 sm:my-[7px] sm:gap-[10px]">
+              <UsersThree weight="duotone" className="h-4 w-4 sm:h-5 sm:w-5" />
+              <strong className="text-[12px] leading-none sm:text-[17px]">{entity.label}</strong>
             </div>
-            <small className="font-mono text-[9px] text-white/80">{entity.type}</small>
+            <small className="font-mono text-[7px] text-white/80 sm:text-[9px]">{entity.type}</small>
           </div>
 
           {groupStates.map((group) => {
@@ -153,7 +153,7 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 type="button"
                 onClick={() => onOpenGroup(group.id)}
                 className={[
-                  'absolute z-[3] grid items-center gap-3 overflow-hidden rounded-[18px] border border-transparent px-[15px] py-[11px] text-left transition-[background-color,border-color,color] duration-200',
+                  'absolute z-[3] grid items-center gap-2 overflow-hidden rounded-[14px] border border-transparent px-2 py-1 text-left transition-[background-color,border-color,color] duration-200 sm:gap-3 sm:rounded-[18px] sm:px-[15px] sm:py-[11px]',
                   'hover:bg-black/55 hover:text-white !border-[#46030563]',
                   isSelected
                     ? '!border-[#A01016] !bg-[#2a0202c6] !text-white'
@@ -162,14 +162,14 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                       : '!bg-[#000000] !text-white/45',
                 ].join(' ')}
                 style={{
-                  gridTemplateColumns: '28px 1fr',
+                  gridTemplateColumns: '22px 1fr',
                   ...frameStyle({ x: GROUP.x, y: group.top, width: GROUP.width, height: GROUP.height }),
                 }}
               >
-                <span className={['font-mono text-[10px]', isSelected ? 'text-white/70' : 'text-white/40'].join(' ')}>{group.id}</span>
+                <span className={['font-mono text-[7px] sm:text-[10px]', isSelected ? 'text-white/70' : 'text-white/40'].join(' ')}>{group.id}</span>
                 <div>
-                  <strong className={['block text-[14px]', isSelected ? 'text-white' : 'text-white/80'].join(' ')}>{group.label}</strong>
-                  <small className={['mt-[3px] block text-[10px]', isSelected ? 'text-white/65' : 'text-white/40'].join(' ')}>
+                  <strong className={['block text-[11px] sm:text-[14px]', isSelected ? 'text-white' : 'text-white/80'].join(' ')}>{group.label}</strong>
+                  <small className={['mt-0.5 block text-[7px] sm:mt-[3px] sm:text-[10px]', isSelected ? 'text-white/65' : 'text-white/40'].join(' ')}>
                     {group.activeCount} / {group.scopes.length} allowed
                   </small>
                 </div>
@@ -189,7 +189,7 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
               <div
                 key={`${endpoint.method}-${endpoint.path}`}
                 className={[
-                  'absolute z-[3] flex items-center justify-between rounded-[18px] border border-transparent px-[16px] transition-[background-color,border-color,color] duration-200',
+                  'absolute z-[3] flex items-center justify-between rounded-[14px] border border-transparent px-2 transition-[background-color,border-color,color] duration-200 sm:rounded-[18px] sm:px-[16px]',
                   'hover:bg-black/55 hover:text-white !border-[#46030563]',
                   isAllowed
                     ? '!bg-black/45 !text-white/85'
@@ -201,28 +201,28 @@ export function AccessTopology({ entity, grants, selectedGroup, onOpenGroup }: A
                 }}
               >
                 <div className="flex min-w-0 flex-col">
-                  <strong className="truncate text-[13px] text-white/80">{endpoint.path.split('/').pop()}</strong>
-                  <small className="mt-[2px] truncate font-mono text-[9px] text-white/40">{endpoint.method} {endpoint.path}</small>
+                  <strong className="truncate text-[10px] text-white/80 sm:text-[13px]">{endpoint.path.split('/').pop()}</strong>
+                  <small className="mt-[2px] truncate font-mono text-[7px] text-white/40 sm:text-[9px]">{endpoint.method} {endpoint.path}</small>
                 </div>
-                <i className={['ml-3 flex-shrink-0 text-white/25', isAllowed ? '!text-[#A01016]' : ''].join(' ')}>
-                  <Key weight={isAllowed ? 'fill' : 'regular'} className="h-[18px] w-[18px]" />
+                <i className={['ml-2 flex-shrink-0 text-white/25 sm:ml-3', isAllowed ? '!text-[#A01016]' : ''].join(' ')}>
+                  <Key weight={isAllowed ? 'fill' : 'regular'} className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px]" />
                 </i>
               </div>
             );
           })}
 
-          <Graph className="pointer-events-none absolute bottom-4 left-4 h-24 w-24 text-white/[0.03]" weight="thin" aria-hidden="true" />
+          <Graph className="pointer-events-none absolute bottom-3 left-3 h-16 w-16 text-white/[0.03] sm:bottom-4 sm:left-4 sm:h-24 sm:w-24" weight="thin" aria-hidden="true" />
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4 px-[10px] sm:gap-6">
+      <div className="mt-3 flex flex-wrap items-center gap-3 px-1 sm:mt-4 sm:gap-6 sm:px-[10px]">
         <div className="flex items-center gap-2">
           <span className="block h-0.5 w-6 bg-[#A01016]/70" />
-          <strong className="font-sans text-[11px] font-medium text-white/40">Allowed route</strong>
+          <strong className="font-sans text-[10px] font-medium text-white/40 sm:text-[11px]">Allowed route</strong>
         </div>
         <div className="flex items-center gap-2">
           <span className="block h-0.5 w-6 bg-white/10" />
-          <span className="font-sans text-[11px] font-medium text-white/40">Blocked route</span>
+          <span className="font-sans text-[10px] font-medium text-white/40 sm:text-[11px]">Blocked route</span>
         </div>
       </div>
     </section>
